@@ -1,0 +1,1712 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Level Lab BNCC - Board do Projeto</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #16314a;
+      --muted: #5a7588;
+      --line: #d6e0ea;
+      --board-bg: #eef2f7;
+      --grid-dot: #c7d3df;
+      --panel: #ffffff;
+      --accent: #ff8a3d;
+
+      --fase: #6b4ed8;       --fase-soft: #efeaff;
+      --atividade: #2b6cb0;  --atividade-soft: #e8f1fb;
+      --tarefa: #1f9d6b;     --tarefa-soft: #e3f6ee;
+      --encontro: #e08a2b;   --encontro-soft: #fdf0db;
+      --mecanica: #0e8f9e;   --mecanica-soft: #ddf5f7;
+
+      --danger: #d24a4a;
+      --shadow-sm: 0 2px 8px rgba(22, 49, 74, 0.12);
+      --shadow-md: 0 12px 30px rgba(22, 49, 74, 0.18);
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      font-family: "Fredoka", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: var(--board-bg);
+    }
+
+    /* ---------- Board ---------- */
+    #board {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      cursor: grab;
+      background-color: var(--board-bg);
+      background-image: radial-gradient(var(--grid-dot) 1.4px, transparent 1.4px);
+      background-size: 26px 26px;
+      background-position: 0 0;
+      touch-action: none;
+    }
+
+    #board.panning { cursor: grabbing; }
+    #board.connecting { cursor: crosshair; }
+
+    #world {
+      position: absolute;
+      top: 0;
+      left: 0;
+      transform-origin: 0 0;
+      will-change: transform;
+    }
+
+    #edgeLayer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      overflow: visible;
+      pointer-events: none;
+    }
+
+    .node {
+      position: absolute;
+      width: 190px;
+      background: var(--panel);
+      border: 2px solid var(--atividade);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      padding: 10px 12px 11px;
+      cursor: grab;
+      user-select: none;
+      transition: box-shadow 120ms ease, transform 120ms ease, border-color 120ms ease;
+    }
+
+    .node:hover { box-shadow: var(--shadow-md); }
+    .node.dragging { cursor: grabbing; box-shadow: var(--shadow-md); }
+
+    .node.fase      { border-color: var(--fase);      width: 204px; border-width: 3px; }
+    .node.atividade { border-color: var(--atividade); width: 190px; }
+    .node.tarefa    { border-color: var(--tarefa);    width: 168px; }
+    .node.encontro  { border-color: var(--encontro);  width: 180px; }
+    .node.mecanica  { border-color: var(--mecanica);  width: 170px; }
+
+    .node.selected {
+      box-shadow: 0 0 0 3px rgba(255, 138, 61, 0.55), var(--shadow-md);
+    }
+
+    .node-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: "Nunito", sans-serif;
+      font-size: 0.66rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 999px;
+      color: var(--atividade);
+      background: var(--atividade-soft);
+    }
+
+    .node.fase      .node-chip { color: var(--fase);      background: var(--fase-soft); }
+    .node.atividade .node-chip { color: var(--atividade); background: var(--atividade-soft); }
+    .node.tarefa    .node-chip { color: var(--tarefa);    background: var(--tarefa-soft); }
+    .node.encontro  .node-chip { color: var(--encontro);  background: var(--encontro-soft); }
+    .node.mecanica  .node-chip { color: var(--mecanica);  background: var(--mecanica-soft); }
+
+    .node-label {
+      margin-top: 7px;
+      font-weight: 600;
+      font-size: 0.96rem;
+      line-height: 1.2;
+      outline: none;
+      word-break: break-word;
+    }
+
+    .node-label[contenteditable="true"] {
+      cursor: text;
+      background: #fff8ef;
+      border-radius: 6px;
+      box-shadow: inset 0 0 0 2px rgba(255, 138, 61, 0.5);
+      padding: 2px 4px;
+    }
+
+    .node-goal {
+      margin-top: 4px;
+      font-size: 0.76rem;
+      color: var(--muted);
+      line-height: 1.25;
+      word-break: break-word;
+    }
+
+    .node-fala {
+      margin-top: 6px;
+      font-size: 0.76rem;
+      color: #7a5a25;
+      line-height: 1.25;
+      background: var(--encontro-soft);
+      border-radius: 8px;
+      padding: 5px 8px;
+      word-break: break-word;
+    }
+
+    .node-fala::before { content: "\201C"; }
+    .node-fala::after { content: "\201D"; }
+
+    .node-meta {
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .difficulty-badge {
+      font-family: "Nunito", sans-serif;
+      font-size: 0.7rem;
+      font-weight: 800;
+      color: #355;
+      background: #eef3f8;
+      border-radius: 999px;
+      padding: 2px 8px;
+    }
+
+    .skill-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 7px;
+    }
+
+    .skill-tag {
+      font-family: "Nunito", sans-serif;
+      font-size: 0.62rem;
+      font-weight: 700;
+      color: #2c5575;
+      background: #eaf1f8;
+      border-radius: 6px;
+      padding: 1px 6px;
+    }
+
+    /* connect handles */
+    .handle {
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #fff;
+      border: 2px solid var(--accent);
+      top: 50%;
+      transform: translateY(-50%);
+      cursor: crosshair;
+      opacity: 0;
+      transition: opacity 120ms ease;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .node:hover .handle,
+    .node.selected .handle { opacity: 1; }
+    .handle.left { left: -9px; }
+    .handle.right { right: -9px; }
+    .handle:hover { background: var(--accent); }
+
+    .edge-hit { stroke: transparent; stroke-width: 16; fill: none; pointer-events: stroke; cursor: pointer; }
+    .edge-line { fill: none; stroke: #88a0b5; stroke-width: 2.4; }
+    .edge-line.selected { stroke: var(--accent); stroke-width: 3.4; }
+    .edge-temp { fill: none; stroke: var(--accent); stroke-width: 2.6; stroke-dasharray: 6 5; }
+
+    /* ---------- Floating UI ---------- */
+    .floating {
+      position: fixed;
+      z-index: 5;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: var(--shadow-md);
+    }
+
+    .brand {
+      top: 16px;
+      left: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      max-width: 320px;
+    }
+
+    .brand .logo {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), #ffb347);
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-family: "Nunito", sans-serif;
+      font-weight: 800;
+      flex: 0 0 auto;
+    }
+
+    .brand input {
+      border: none;
+      font-family: "Nunito", sans-serif;
+      font-weight: 800;
+      font-size: 1rem;
+      color: var(--ink);
+      width: 220px;
+      outline: none;
+      background: transparent;
+    }
+
+    .brand small { display: block; color: var(--muted); font-size: 0.72rem; }
+
+    .toolbar {
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 7px 8px;
+      flex-wrap: wrap;
+      max-width: min(680px, 60vw);
+      justify-content: center;
+    }
+
+    .toolbar .sep { width: 1px; height: 26px; background: var(--line); margin: 0 3px; }
+
+    button {
+      font: inherit;
+      cursor: pointer;
+      border: none;
+      border-radius: 10px;
+      padding: 8px 11px;
+      font-weight: 600;
+      background: #f1f5fa;
+      color: #20415f;
+      transition: transform 100ms ease, filter 100ms ease, background 120ms ease;
+      white-space: nowrap;
+    }
+
+    button:hover { transform: translateY(-1px); filter: saturate(1.05); }
+    button:active { transform: translateY(0); }
+
+    .btn-fase      { background: var(--fase);      color: #fff; }
+    .btn-atividade { background: var(--atividade); color: #fff; }
+    .btn-tarefa    { background: var(--tarefa);    color: #fff; }
+    .btn-encontro  { background: var(--encontro);  color: #fff; }
+    .btn-mecanica  { background: var(--mecanica);  color: #fff; }
+    .btn-accent { background: var(--accent); color: #fff; }
+    .btn-ghost { background: transparent; color: #2a4b63; }
+    .btn-danger { background: #fdeaea; color: var(--danger); }
+    .btn-icon { padding: 8px 10px; }
+
+    .top-right {
+      top: 16px;
+      right: 16px;
+      display: flex;
+      gap: 6px;
+      padding: 7px 8px;
+    }
+
+    .zoom {
+      right: 16px;
+      bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px;
+    }
+
+    .zoom button { padding: 6px 10px; }
+    .zoom .level { min-width: 52px; text-align: center; font-weight: 700; font-size: 0.84rem; color: #38566e; }
+
+    .hint-bar {
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: 16px;
+      padding: 8px 14px;
+      font-size: 0.82rem;
+      color: var(--muted);
+      display: flex;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .hint-bar b { color: var(--ink); font-weight: 700; }
+
+    /* Panels (slide-in) */
+    .panel-side {
+      top: 78px;
+      bottom: 64px;
+      width: 330px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: transform 220ms ease, opacity 180ms ease;
+    }
+
+    .panel-left { left: 16px; transform: translateX(-370px); opacity: 0; pointer-events: none; }
+    .panel-left.open { transform: translateX(0); opacity: 1; pointer-events: auto; }
+    .panel-right { right: 16px; transform: translateX(370px); opacity: 0; pointer-events: none; }
+    .panel-right.open { transform: translateX(0); opacity: 1; pointer-events: auto; }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .panel-head h2 { margin: 0; font-family: "Nunito", sans-serif; font-size: 1rem; }
+    .panel-body { padding: 14px; overflow: auto; }
+
+    label { display: block; font-size: 0.82rem; margin: 10px 0 5px; color: #2a4b63; }
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+    input[type="text"], input[type="number"], select, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 9px 10px;
+      font: inherit;
+      color: var(--ink);
+      background: #fff;
+      outline: none;
+    }
+
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+    textarea { min-height: 74px; resize: vertical; }
+
+    .skills-box {
+      border: 1px dashed var(--line);
+      border-radius: 10px;
+      padding: 8px;
+      background: #fafdff;
+      max-height: 180px;
+      overflow: auto;
+    }
+
+    .skill-item { display: flex; gap: 8px; align-items: flex-start; padding: 5px 3px; border-bottom: 1px solid #eef3f8; }
+    .skill-item:last-child { border-bottom: none; }
+    .skill-item input { width: auto; margin-top: 3px; }
+    .skill-code { font-family: "Nunito", sans-serif; font-weight: 800; color: #295271; margin-right: 4px; }
+    .skill-item label { margin: 0; font-size: 0.8rem; cursor: pointer; }
+
+    .range-row { display: flex; align-items: center; gap: 10px; }
+    .range-row input[type="range"] { flex: 1; accent-color: var(--accent); }
+    .range-row .val { font-family: "Nunito", sans-serif; font-weight: 800; min-width: 26px; text-align: center; }
+
+    .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+    .seg button { flex: 1 1 30%; }
+
+    .doc-preview {
+      white-space: pre-wrap;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fcfdff;
+      padding: 11px;
+      font-size: 0.75rem;
+      line-height: 1.3;
+      overflow: auto;
+      flex: 1;
+      font-family: "Consolas", "Menlo", monospace;
+    }
+
+    .panel-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .panel-actions button { flex: 1 1 46%; }
+
+    .empty-inspector { color: var(--muted); font-size: 0.86rem; line-height: 1.4; }
+
+    .status {
+      position: fixed;
+      left: 50%;
+      bottom: 64px;
+      transform: translateX(-50%) translateY(14px);
+      z-index: 7;
+      background: #16314a;
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 999px;
+      font-size: 0.84rem;
+      box-shadow: var(--shadow-md);
+      opacity: 0;
+      transition: opacity 180ms ease, transform 180ms ease;
+      pointer-events: none;
+    }
+
+    .status.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .status.error { background: var(--danger); }
+
+    @media (max-width: 900px) {
+      .toolbar { max-width: 56vw; }
+    }
+    @media (max-width: 720px) {
+      .brand input { width: 150px; }
+      .panel-side { width: calc(100vw - 32px); }
+      .hint-bar { display: none; }
+      .toolbar { gap: 4px; padding: 6px; max-width: 70vw; }
+      button { padding: 7px 9px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- BOARD -->
+  <div id="board">
+    <div id="world">
+      <svg id="edgeLayer" width="8000" height="6000">
+        <defs>
+          <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L9,4.5 L0,9 z" fill="#88a0b5"></path>
+          </marker>
+          <marker id="arrowSel" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L9,4.5 L0,9 z" fill="#ff8a3d"></path>
+          </marker>
+        </defs>
+        <g id="edgesG"></g>
+        <path id="tempEdge" class="edge-temp" style="display:none"></path>
+      </svg>
+      <div id="nodesG"></div>
+    </div>
+  </div>
+
+  <!-- BRAND -->
+  <div class="floating brand">
+    <div class="logo">LL</div>
+    <div>
+      <input id="projName" type="text" value="Novo projeto BNCC" aria-label="Nome do projeto">
+      <small>Board do projeto - fases, passos e conexoes</small>
+    </div>
+  </div>
+
+  <!-- TOP TOOLBAR -->
+  <div class="floating toolbar">
+    <button id="addFase" class="btn-fase" title="Adicionar Fase">+ &#128506; Fase</button>
+    <button id="addAtividade" class="btn-atividade" title="Adicionar Atividade">+ &#128218; Atividade</button>
+    <button id="addTarefa" class="btn-tarefa" title="Adicionar Tarefa">+ &#9989; Tarefa</button>
+    <button id="addEncontro" class="btn-encontro" title="Adicionar Encontro (NPC ou Desafio)">+ &#128172; Encontro</button>
+    <button id="addMecanica" class="btn-mecanica" title="Adicionar Mecanica">+ &#9881; Mecanica</button>
+    <span class="sep"></span>
+    <button id="autoArrange" class="btn-ghost" title="Auto-organizar">Organizar</button>
+    <button id="fitView" class="btn-ghost" title="Enquadrar tudo">Enquadrar</button>
+    <button id="toggleDoc" class="btn-ghost" title="Documento">Documento</button>
+  </div>
+
+  <!-- TOP RIGHT -->
+  <div class="floating top-right">
+    <button id="saveLocal" class="btn-ghost">Salvar</button>
+    <button id="loadLocal" class="btn-ghost">Carregar</button>
+  </div>
+
+  <!-- ZOOM -->
+  <div class="floating zoom">
+    <button id="zoomOut" class="btn-icon" aria-label="Diminuir zoom">-</button>
+    <span id="zoomLevel" class="level">100%</span>
+    <button id="zoomIn" class="btn-icon" aria-label="Aumentar zoom">+</button>
+    <button id="zoomReset" class="btn-ghost btn-icon" title="Resetar zoom">100%</button>
+  </div>
+
+  <!-- HINT BAR -->
+  <div class="floating hint-bar">
+    <span><b>Duplo clique</b> cria um no</span>
+    <span><b>Arraste a bolinha</b> para conectar</span>
+    <span><b>Duplo clique no no</b> renomeia</span>
+    <span><b>Delete</b> remove</span>
+  </div>
+
+  <!-- LEFT PANEL: Documento -->
+  <aside id="panelLeft" class="floating panel-side panel-left">
+    <div class="panel-head">
+      <h2>Documento gerado</h2>
+      <button id="closeLeft" class="btn-ghost btn-icon" aria-label="Fechar">x</button>
+    </div>
+    <div class="panel-body">
+      <div id="docPreview" class="doc-preview"></div>
+      <div class="panel-actions">
+        <button id="copyDoc" class="btn-ghost">Copiar</button>
+        <button id="downloadMd" class="btn-accent">Baixar .md</button>
+        <button id="downloadJson" class="btn-ghost">Baixar .json</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- RIGHT PANEL: Inspector -->
+  <aside id="panelRight" class="floating panel-side panel-right">
+    <div class="panel-head">
+      <h2>Inspetor</h2>
+      <button id="closeRight" class="btn-ghost btn-icon" aria-label="Fechar">x</button>
+    </div>
+    <div class="panel-body" id="inspectorBody">
+      <div class="empty-inspector">Selecione um no no board para editar suas propriedades, ou crie um novo com duplo clique.</div>
+    </div>
+  </aside>
+
+  <div id="status" class="status"></div>
+
+  <script>
+    const BNCC = {
+      "1": [
+        { code: "EF01MA01", text: "Contar e comparar quantidades com numeros naturais." },
+        { code: "EF01MA03", text: "Resolver adicao e subtracao com apoio de imagens e materiais." },
+        { code: "EF01MA06", text: "Descrever localizacao de objetos e pessoas no espaco." }
+      ],
+      "2": [
+        { code: "EF02MA03", text: "Resolver adicao e subtracao com diferentes estrategias." },
+        { code: "EF02MA07", text: "Construir sequencias e regularidades em padroes numericos." },
+        { code: "EF02MA12", text: "Reconhecer e comparar figuras geometricas espaciais." }
+      ],
+      "3": [
+        { code: "EF03MA05", text: "Resolver problemas de multiplicacao e divisao simples." },
+        { code: "EF03MA13", text: "Resolver problemas com medida de tempo e comprimento." },
+        { code: "EF03MA23", text: "Organizar dados em tabelas e graficos simples." }
+      ],
+      "4": [
+        { code: "EF04MA06", text: "Resolver multiplicacao e divisao em contextos variados." },
+        { code: "EF04MA16", text: "Estimar, comparar e medir area e perimetro." },
+        { code: "EF04MA27", text: "Interpretar dados em graficos de barras e colunas." }
+      ],
+      "5": [
+        { code: "EF05MA07", text: "Resolver problemas com numeros racionais do cotidiano." },
+        { code: "EF05MA19", text: "Resolver problemas de area, perimetro e volume." },
+        { code: "EF05MA24", text: "Analisar dados em diferentes tipos de graficos." }
+      ]
+    };
+
+    const NODE_TYPES = {
+      fase:      { label: "Fase",      plural: "Fases",      w: 204, color: "#6b4ed8", soft: "#efeaff" },
+      atividade: { label: "Atividade", plural: "Atividades", w: 190, color: "#2b6cb0", soft: "#e8f1fb" },
+      tarefa:    { label: "Tarefa",    plural: "Tarefas",    w: 168, color: "#1f9d6b", soft: "#e3f6ee" },
+      encontro:  { label: "Encontro",  plural: "Encontros",  w: 180, color: "#e08a2b", soft: "#fdf0db" },
+      mecanica:  { label: "Mecanica",  plural: "Mecanicas",  w: 170, color: "#0e8f9e", soft: "#ddf5f7" }
+    };
+
+    const DEFAULT_LABEL = {
+      fase: "Nova fase",
+      atividade: "Nova atividade",
+      tarefa: "Nova tarefa",
+      encontro: "Novo encontro",
+      mecanica: "Nova mecanica"
+    };
+
+    const state = {
+      grade: "1",
+      nodes: [],
+      edges: [],
+      selectedNodeId: null,
+      selectedEdgeId: null,
+      view: { scale: 1, x: 0, y: 0 },
+      ui: { leftOpen: false, rightOpen: false }
+    };
+
+    const board = byId("board");
+    const world = byId("world");
+    const nodesG = byId("nodesG");
+    const edgesG = byId("edgesG");
+    const tempEdge = byId("tempEdge");
+
+    const inter = {
+      mode: null,
+      startX: 0,
+      startY: 0,
+      nodeId: null,
+      nodeStart: { x: 0, y: 0 },
+      connectFrom: null
+    };
+
+    init();
+
+    function init() {
+      Object.keys(NODE_TYPES).forEach((kind) => {
+        const btn = byId("add" + cap(kind));
+        if (btn) btn.addEventListener("click", () => addNodeAtCenter(kind));
+      });
+      byId("autoArrange").addEventListener("click", autoArrange);
+      byId("fitView").addEventListener("click", fitView);
+      byId("toggleDoc").addEventListener("click", () => { state.ui.leftOpen = !state.ui.leftOpen; syncPanels(); renderDoc(); });
+      byId("closeLeft").addEventListener("click", () => { state.ui.leftOpen = false; syncPanels(); });
+      byId("closeRight").addEventListener("click", () => { state.ui.rightOpen = false; syncPanels(); });
+
+      byId("saveLocal").addEventListener("click", saveLocal);
+      byId("loadLocal").addEventListener("click", loadLocal);
+      byId("copyDoc").addEventListener("click", copyDoc);
+      byId("downloadMd").addEventListener("click", downloadMd);
+      byId("downloadJson").addEventListener("click", downloadJson);
+
+      byId("zoomIn").addEventListener("click", () => zoomByButton(1.2));
+      byId("zoomOut").addEventListener("click", () => zoomByButton(1 / 1.2));
+      byId("zoomReset").addEventListener("click", resetZoom);
+
+      byId("projName").addEventListener("input", renderDoc);
+
+      board.addEventListener("pointerdown", onBoardPointerDown);
+      window.addEventListener("pointermove", onPointerMove);
+      window.addEventListener("pointerup", onPointerUp);
+      board.addEventListener("dblclick", onBoardDblClick);
+      board.addEventListener("wheel", onWheel, { passive: false });
+      window.addEventListener("keydown", onKeyDown);
+
+      applyView();
+      seedExample();
+      render();
+    }
+
+    function screenToWorld(clientX, clientY) {
+      const rect = board.getBoundingClientRect();
+      return {
+        x: (clientX - rect.left - state.view.x) / state.view.scale,
+        y: (clientY - rect.top - state.view.y) / state.view.scale
+      };
+    }
+
+    function applyView() {
+      world.style.transform = "translate(" + state.view.x + "px," + state.view.y + "px) scale(" + state.view.scale + ")";
+      board.style.backgroundSize = (26 * state.view.scale) + "px " + (26 * state.view.scale) + "px";
+      board.style.backgroundPosition = state.view.x + "px " + state.view.y + "px";
+      byId("zoomLevel").textContent = Math.round(state.view.scale * 100) + "%";
+    }
+
+    function nodeWidth(kind) { return (NODE_TYPES[kind] || NODE_TYPES.atividade).w; }
+
+    function nodeSize(node) {
+      const el = document.getElementById("node-" + node.id);
+      const w = nodeWidth(node.kind);
+      const h = el ? el.offsetHeight : 84;
+      return { w, h };
+    }
+
+    function nodeCenter(node) {
+      const s = nodeSize(node);
+      return { x: node.x + s.w / 2, y: node.y + s.h / 2, w: s.w, h: s.h };
+    }
+
+    function addNode(kind, x, y) {
+      const node = {
+        id: uid("n"),
+        kind,
+        label: DEFAULT_LABEL[kind] || "Novo no",
+        goal: "",
+        skills: [],
+        x,
+        y
+      };
+      if (kind === "encontro") {
+        node.encounterType = "NPC";
+        node.fala = "";
+      }
+      if (kind === "fase") {
+        node.serie = "1";
+        node.idade = "6 a 7 anos";
+        node.duracao = "20";
+        node.intencao = "";
+        node.mecanicas = "";
+        node.narrativa = "";
+        node.avaliacao = "";
+      }
+      state.nodes.push(node);
+      selectNode(node.id);
+      return node;
+    }
+
+    function nodeIcon(kind, encounterType) {
+      if (kind === "fase") return String.fromCodePoint(0x1F5FA);
+      if (kind === "atividade") return String.fromCodePoint(0x1F4DA);
+      if (kind === "tarefa") return String.fromCodePoint(0x2705);
+      if (kind === "encontro") {
+        return encounterType === "Desafio"
+          ? String.fromCodePoint(0x1F3AF)
+          : String.fromCodePoint(0x1F4AC);
+      }
+      if (kind === "mecanica") return String.fromCodePoint(0x2699);
+      return "";
+    }
+
+    function addNodeAtCenter(kind) {
+      const rect = board.getBoundingClientRect();
+      const c = screenToWorld(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      const w = nodeWidth(kind);
+      const node = addNode(kind, c.x - w / 2, c.y - 42);
+      render();
+      flash(NODE_TYPES[kind].label + " criado(a).");
+      requestAnimationFrame(() => startEditing(node.id));
+    }
+
+    function selectNode(id) {
+      state.selectedNodeId = id;
+      state.selectedEdgeId = null;
+      state.ui.rightOpen = !!id;
+      syncPanels();
+    }
+
+    function selectEdge(id) {
+      state.selectedEdgeId = id;
+      state.selectedNodeId = null;
+      state.ui.rightOpen = false;
+      syncPanels();
+    }
+
+    function deleteSelected() {
+      if (state.selectedNodeId) {
+        const id = state.selectedNodeId;
+        state.nodes = state.nodes.filter((n) => n.id !== id);
+        state.edges = state.edges.filter((e) => e.from !== id && e.to !== id);
+        state.selectedNodeId = null;
+        state.ui.rightOpen = false;
+        syncPanels();
+        render();
+        flash("No removido.");
+      } else if (state.selectedEdgeId) {
+        state.edges = state.edges.filter((e) => e.id !== state.selectedEdgeId);
+        state.selectedEdgeId = null;
+        render();
+        flash("Conexao removida.");
+      }
+    }
+
+    function onBoardPointerDown(e) {
+      const handle = e.target.closest(".handle");
+      if (handle) {
+        const nodeEl = handle.closest(".node");
+        startConnect(nodeEl.dataset.id, e);
+        e.preventDefault();
+        return;
+      }
+
+      const nodeEl = e.target.closest(".node");
+      if (nodeEl) {
+        if (e.target.getAttribute("contenteditable") === "true") return;
+        startDragNode(nodeEl.dataset.id, e);
+        e.preventDefault();
+        return;
+      }
+
+      const edgeHit = e.target.closest(".edge-hit");
+      if (edgeHit) {
+        selectEdge(edgeHit.dataset.id);
+        render();
+        return;
+      }
+
+      state.selectedNodeId = null;
+      state.selectedEdgeId = null;
+      state.ui.rightOpen = false;
+      syncPanels();
+      render();
+
+      inter.mode = "pan";
+      inter.startX = e.clientX - state.view.x;
+      inter.startY = e.clientY - state.view.y;
+      board.classList.add("panning");
+    }
+
+    function startDragNode(id, e) {
+      const node = findNode(id);
+      if (!node) return;
+      selectNode(id);
+      render();
+      inter.mode = "drag";
+      inter.nodeId = id;
+      inter.startX = e.clientX;
+      inter.startY = e.clientY;
+      inter.nodeStart = { x: node.x, y: node.y };
+      const el = document.getElementById("node-" + id);
+      if (el) el.classList.add("dragging");
+    }
+
+    function startConnect(id, e) {
+      inter.mode = "connect";
+      inter.connectFrom = id;
+      board.classList.add("connecting");
+      const from = nodeCenter(findNode(id));
+      const p = screenToWorld(e.clientX, e.clientY);
+      drawTemp(from.x, from.y, p.x, p.y);
+    }
+
+    function onPointerMove(e) {
+      if (!inter.mode) return;
+
+      if (inter.mode === "pan") {
+        state.view.x = e.clientX - inter.startX;
+        state.view.y = e.clientY - inter.startY;
+        applyView();
+        return;
+      }
+
+      if (inter.mode === "drag") {
+        const node = findNode(inter.nodeId);
+        if (!node) return;
+        const dx = (e.clientX - inter.startX) / state.view.scale;
+        const dy = (e.clientY - inter.startY) / state.view.scale;
+        node.x = inter.nodeStart.x + dx;
+        node.y = inter.nodeStart.y + dy;
+        positionNode(node);
+        renderEdges();
+        return;
+      }
+
+      if (inter.mode === "connect") {
+        const from = nodeCenter(findNode(inter.connectFrom));
+        const p = screenToWorld(e.clientX, e.clientY);
+        const overEl = document.elementFromPoint(e.clientX, e.clientY);
+        const overNode = overEl && overEl.closest(".node");
+        if (overNode && overNode.dataset.id !== inter.connectFrom) {
+          const c = nodeCenter(findNode(overNode.dataset.id));
+          drawTemp(from.x, from.y, c.x, c.y);
+        } else {
+          drawTemp(from.x, from.y, p.x, p.y);
+        }
+        return;
+      }
+    }
+
+    function onPointerUp(e) {
+      if (inter.mode === "connect") {
+        const overEl = document.elementFromPoint(e.clientX, e.clientY);
+        const overNode = overEl && overEl.closest(".node");
+        if (overNode && overNode.dataset.id !== inter.connectFrom) {
+          createEdge(inter.connectFrom, overNode.dataset.id);
+        }
+        tempEdge.style.display = "none";
+        board.classList.remove("connecting");
+      }
+
+      if (inter.mode === "drag") {
+        const el = document.getElementById("node-" + inter.nodeId);
+        if (el) el.classList.remove("dragging");
+        renderDoc();
+      }
+
+      board.classList.remove("panning");
+      inter.mode = null;
+      inter.nodeId = null;
+      inter.connectFrom = null;
+    }
+
+    function onBoardDblClick(e) {
+      if (e.target.closest(".node") || e.target.closest(".floating")) return;
+      const p = screenToWorld(e.clientX, e.clientY);
+      const node = addNode("atividade", p.x - nodeWidth("atividade") / 2, p.y - 42);
+      render();
+      requestAnimationFrame(() => startEditing(node.id));
+    }
+
+    function onWheel(e) {
+      e.preventDefault();
+      const rect = board.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+      const newScale = clamp(state.view.scale * factor, 0.3, 2.5);
+      const wx = (mx - state.view.x) / state.view.scale;
+      const wy = (my - state.view.y) / state.view.scale;
+      state.view.x = mx - wx * newScale;
+      state.view.y = my - wy * newScale;
+      state.view.scale = newScale;
+      applyView();
+      renderEdges();
+    }
+
+    function onKeyDown(e) {
+      const editing = document.activeElement &&
+        (document.activeElement.getAttribute("contenteditable") === "true" ||
+         ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName));
+      if (editing) {
+        if (e.key === "Escape") document.activeElement.blur();
+        return;
+      }
+      if (e.key === "Delete" || e.key === "Backspace") {
+        if (state.selectedNodeId || state.selectedEdgeId) { e.preventDefault(); deleteSelected(); }
+      } else if (e.key === "Escape") {
+        state.selectedNodeId = null; state.selectedEdgeId = null; state.ui.rightOpen = false;
+        syncPanels(); render();
+      }
+    }
+
+    function createEdge(from, to) {
+      if (from === to) return;
+      if (state.edges.some((e) => e.from === from && e.to === to)) {
+        flash("Conexao ja existe.", true);
+        return;
+      }
+      state.edges.push({ id: uid("e"), from, to });
+      render();
+      flash("Conexao criada.");
+    }
+
+    function edgePath(a, b) {
+      const start = borderPoint(a, b.x, b.y);
+      const end = borderPoint(b, a.x, a.y);
+      return { sx: start.x, sy: start.y, ex: end.x, ey: end.y };
+    }
+
+    function borderPoint(c, tx, ty) {
+      const dx = tx - c.x;
+      const dy = ty - c.y;
+      if (dx === 0 && dy === 0) return { x: c.x, y: c.y };
+      const hw = c.w / 2 + 4;
+      const hh = c.h / 2 + 4;
+      const scale = 1 / Math.max(Math.abs(dx) / hw, Math.abs(dy) / hh);
+      return { x: c.x + dx * scale, y: c.y + dy * scale };
+    }
+
+    function drawTemp(sx, sy, ex, ey) {
+      tempEdge.style.display = "block";
+      tempEdge.setAttribute("d", "M" + sx + "," + sy + " L" + ex + "," + ey);
+    }
+
+    function render() {
+      renderNodes();
+      renderEdges();
+      renderInspector();
+      renderDoc();
+    }
+
+    function renderNodes() {
+      nodesG.innerHTML = "";
+      state.nodes.forEach((node) => {
+        const el = document.createElement("div");
+        el.className = "node " + node.kind + (node.id === state.selectedNodeId ? " selected" : "");
+        el.id = "node-" + node.id;
+        el.dataset.id = node.id;
+        el.style.left = node.x + "px";
+        el.style.top = node.y + "px";
+
+        const chip = document.createElement("span");
+        chip.className = "node-chip";
+        if (node.kind === "encontro" && node.encounterType) {
+          chip.textContent = nodeIcon(node.kind, node.encounterType) + " Encontro - " + node.encounterType;
+        } else {
+          chip.textContent = nodeIcon(node.kind, node.encounterType) + " " + NODE_TYPES[node.kind].label;
+        }
+        el.appendChild(chip);
+
+        const label = document.createElement("div");
+        label.className = "node-label";
+        label.textContent = node.label;
+        label.addEventListener("dblclick", (ev) => { ev.stopPropagation(); startEditing(node.id); });
+        el.appendChild(label);
+
+        if (node.goal) {
+          const goal = document.createElement("div");
+          goal.className = "node-goal";
+          goal.textContent = node.goal;
+          el.appendChild(goal);
+        }
+
+        if (node.kind === "encontro" && node.fala) {
+          const fala = document.createElement("div");
+          fala.className = "node-fala";
+          fala.textContent = node.fala;
+          el.appendChild(fala);
+        }
+
+        if (node.kind === "encontro" && node.encounterType === "Desafio") {
+          const meta = document.createElement("div");
+          meta.className = "node-meta";
+          const badge = document.createElement("span");
+          badge.className = "difficulty-badge";
+          badge.textContent = "dificuldade " + (node.difficulty || 1);
+          meta.appendChild(badge);
+          el.appendChild(meta);
+        }
+
+        if (node.kind === "atividade" && node.skills && node.skills.length) {
+          const tags = document.createElement("div");
+          tags.className = "skill-tags";
+          node.skills.forEach((code) => {
+            const t = document.createElement("span");
+            t.className = "skill-tag";
+            t.textContent = code;
+            tags.appendChild(t);
+          });
+          el.appendChild(tags);
+        }
+
+        const hl = document.createElement("div");
+        hl.className = "handle left";
+        const hr = document.createElement("div");
+        hr.className = "handle right";
+        el.appendChild(hl);
+        el.appendChild(hr);
+
+        nodesG.appendChild(el);
+      });
+    }
+
+    function positionNode(node) {
+      const el = document.getElementById("node-" + node.id);
+      if (el) {
+        el.style.left = node.x + "px";
+        el.style.top = node.y + "px";
+      }
+    }
+
+    function renderEdges() {
+      edgesG.innerHTML = "";
+      state.edges.forEach((edge) => {
+        const a = findNode(edge.from);
+        const b = findNode(edge.to);
+        if (!a || !b) return;
+        const ca = nodeCenter(a);
+        const cb = nodeCenter(b);
+        const p = edgePath(ca, cb);
+        const selected = edge.id === state.selectedEdgeId;
+
+        const hit = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        hit.setAttribute("class", "edge-hit");
+        hit.setAttribute("d", "M" + p.sx + "," + p.sy + " L" + p.ex + "," + p.ey);
+        hit.dataset.id = edge.id;
+
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        line.setAttribute("class", "edge-line" + (selected ? " selected" : ""));
+        line.setAttribute("d", "M" + p.sx + "," + p.sy + " L" + p.ex + "," + p.ey);
+        line.setAttribute("marker-end", selected ? "url(#arrowSel)" : "url(#arrow)");
+
+        edgesG.appendChild(hit);
+        edgesG.appendChild(line);
+      });
+    }
+
+    function startEditing(id) {
+      const el = document.getElementById("node-" + id);
+      if (!el) return;
+      const label = el.querySelector(".node-label");
+      label.setAttribute("contenteditable", "true");
+      label.focus();
+      document.getSelection().selectAllChildren(label);
+
+      const commit = () => {
+        label.removeAttribute("contenteditable");
+        const node = findNode(id);
+        if (node) {
+          node.label = label.textContent.trim() || DEFAULT_LABEL[node.kind] || "Novo no";
+        }
+        label.removeEventListener("blur", commit);
+        label.removeEventListener("keydown", keyer);
+        render();
+      };
+      const keyer = (ev) => {
+        if (ev.key === "Enter") { ev.preventDefault(); label.blur(); }
+        if (ev.key === "Escape") { label.textContent = findNode(id).label; label.blur(); }
+      };
+      label.addEventListener("blur", commit);
+      label.addEventListener("keydown", keyer);
+    }
+
+    function renderInspector() {
+      const body = byId("inspectorBody");
+      const node = findNode(state.selectedNodeId);
+
+      if (!node) {
+        body.innerHTML = '<div class="empty-inspector">Selecione um no no board para editar suas propriedades, ou crie um novo com duplo clique.</div>';
+        return;
+      }
+
+      body.innerHTML = "";
+
+      const kindLabel = document.createElement("label");
+      kindLabel.textContent = "Tipo de no";
+      body.appendChild(kindLabel);
+
+      const seg = document.createElement("div");
+      seg.className = "seg";
+      Object.keys(NODE_TYPES).forEach((kind) => {
+        const b = document.createElement("button");
+        b.textContent = nodeIcon(kind) + " " + NODE_TYPES[kind].label;
+        if (node.kind === kind) {
+          b.style.background = NODE_TYPES[kind].color;
+          b.style.color = "#fff";
+        }
+        b.addEventListener("click", () => {
+          const oldKind = node.kind;
+          node.kind = kind;
+          if (kind === "encontro" && node.encounterType === undefined) { node.encounterType = "NPC"; node.fala = ""; }
+          if (kind === "fase" && oldKind !== "fase") {
+            node.serie = "1";
+            node.idade = "6 a 7 anos";
+            node.duracao = "20";
+            node.intencao = "";
+            node.mecanicas = "";
+            node.narrativa = "";
+            node.avaliacao = "";
+          }
+          if (kind !== "atividade") node.skills = [];
+          render();
+        });
+        seg.appendChild(b);
+      });
+      body.appendChild(seg);
+
+      addField(body, "Nome do no", "text", node.label, (v) => { node.label = v; positionLabelText(node); renderDoc(); });
+
+      // Fase-specific context
+      if (node.kind === "fase") {
+        const sep = document.createElement("hr");
+        sep.style.margin = "14px 0";
+        sep.style.border = "none";
+        sep.style.borderTop = "1px solid var(--line)";
+        body.appendChild(sep);
+
+        const ctxTitle = document.createElement("h3");
+        ctxTitle.textContent = "Contexto da fase";
+        ctxTitle.style.fontSize = "0.9rem";
+        ctxTitle.style.margin = "10px 0 10px";
+        ctxTitle.style.color = "var(--ink)";
+        ctxTitle.style.fontWeight = "600";
+        body.appendChild(ctxTitle);
+
+        const serieLabel = document.createElement("label");
+        serieLabel.textContent = "Ano escolar";
+        body.appendChild(serieLabel);
+        const serieSel = document.createElement("select");
+        ["1", "2", "3", "4", "5"].forEach((yr) => {
+          const opt = document.createElement("option");
+          opt.value = yr;
+          opt.textContent = yr + "o ano";
+          if ((node.serie || "1") === yr) opt.selected = true;
+          serieSel.appendChild(opt);
+        });
+        serieSel.addEventListener("change", (e) => { node.serie = e.target.value; state.grade = e.target.value; renderInspector(); renderDoc(); });
+        body.appendChild(serieSel);
+
+        addField(body, "Faixa etaria", "text", node.idade || "", (v) => { node.idade = v; renderDoc(); }, "Ex: 6 a 7 anos");
+        addField(body, "Duracao (minutos)", "number", node.duracao || "20", (v) => { node.duracao = v; renderDoc(); });
+        addField(body, "Intencao pedagogica", "textarea", node.intencao || "", (v) => { node.intencao = v; renderDoc(); });
+        addField(body, "Mecanicas e feedback", "textarea", node.mecanicas || "", (v) => { node.mecanicas = v; renderDoc(); });
+        addField(body, "Narrativa ambiental", "textarea", node.narrativa || "", (v) => { node.narrativa = v; renderDoc(); });
+        addField(body, "Validacao", "textarea", node.avaliacao || "", (v) => { node.avaliacao = v; renderDoc(); });
+      }
+
+      // encontro-specific
+      if (node.kind === "encontro") {
+        const etl = document.createElement("label");
+        etl.textContent = "Tipo de encontro";
+        body.appendChild(etl);
+        const sel = document.createElement("select");
+        ["NPC", "Desafio"].forEach((opt) => {
+          const o = document.createElement("option");
+          o.value = opt;
+          o.textContent = opt === "NPC" ? "NPC com fala" : "Desafio";
+          if ((node.encounterType || "NPC") === opt) o.selected = true;
+          sel.appendChild(o);
+        });
+        sel.addEventListener("change", () => {
+          node.encounterType = sel.value;
+          if (sel.value === "Desafio" && !node.difficulty) node.difficulty = 4;
+          if (sel.value === "NPC") delete node.difficulty;
+          render();
+        });
+        body.appendChild(sel);
+
+        const fl = document.createElement("label");
+        fl.textContent = node.encounterType === "Desafio" ? "Descricao do desafio" : "Fala do NPC";
+        body.appendChild(fl);
+        const ta = document.createElement("textarea");
+        ta.value = node.fala || "";
+        ta.placeholder = node.encounterType === "Desafio" ? "O que o desafio pede?" : "O que o NPC diz a crianca?";
+        ta.addEventListener("input", () => { node.fala = ta.value; render(); });
+        body.appendChild(ta);
+
+        if (node.encounterType === "Desafio") {
+          const dl = document.createElement("label");
+          dl.textContent = "Dificuldade do desafio";
+          body.appendChild(dl);
+          const row = document.createElement("div");
+          row.className = "range-row";
+          const range = document.createElement("input");
+          range.type = "range";
+          range.min = "1";
+          range.max = "10";
+          range.value = node.difficulty || 4;
+          const val = document.createElement("span");
+          val.className = "val";
+          val.textContent = String(node.difficulty || 4);
+          range.addEventListener("input", () => {
+            node.difficulty = Number(range.value);
+            val.textContent = String(node.difficulty);
+            render();
+          });
+          row.appendChild(range);
+          row.appendChild(val);
+          body.appendChild(row);
+        }
+      }
+
+      addField(body, "Foco pedagogico", "text", node.goal, (v) => { node.goal = v; render(); }, "Ex: somar valores ate 20");
+
+      if (node.kind === "atividade") {
+        const selectedGrade = state.grade;
+        const sl = document.createElement("label");
+        sl.textContent = "Habilidades BNCC (" + selectedGrade + "o ano)";
+        body.appendChild(sl);
+        const box = document.createElement("div");
+        box.className = "skills-box";
+        (BNCC[selectedGrade] || []).forEach((skill) => {
+          const item = document.createElement("div");
+          item.className = "skill-item";
+          const cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.id = "sk-" + node.id + "-" + skill.code;
+          cb.checked = node.skills.includes(skill.code);
+          cb.addEventListener("change", () => {
+            if (cb.checked) { if (!node.skills.includes(skill.code)) node.skills.push(skill.code); }
+            else { node.skills = node.skills.filter((c) => c !== skill.code); }
+            render();
+          });
+          const lab = document.createElement("label");
+          lab.setAttribute("for", cb.id);
+          lab.innerHTML = '<span class="skill-code">' + skill.code + "</span>" + skill.text;
+          item.appendChild(cb);
+          item.appendChild(lab);
+          box.appendChild(item);
+        });
+        body.appendChild(box);
+      }
+
+      const actions = document.createElement("div");
+      actions.className = "panel-actions";
+      const dup = document.createElement("button");
+      dup.className = "btn-ghost";
+      dup.textContent = "Duplicar";
+      dup.addEventListener("click", () => duplicateNode(node));
+      const del = document.createElement("button");
+      del.className = "btn-danger";
+      del.textContent = "Remover no";
+      del.addEventListener("click", deleteSelected);
+      actions.appendChild(dup);
+      actions.appendChild(del);
+      body.appendChild(actions);
+    }
+
+    function positionLabelText(node) {
+      const label = document.querySelector("#node-" + node.id + " .node-label");
+      if (label) label.textContent = node.label;
+    }
+
+    function addField(parent, labelText, type, value, onInput, placeholder) {
+      const l = document.createElement("label");
+      l.textContent = labelText;
+      parent.appendChild(l);
+      const input = type === "textarea" 
+        ? document.createElement("textarea")
+        : document.createElement("input");
+      if (type !== "textarea") input.type = type;
+      input.value = value || "";
+      if (placeholder) input.placeholder = placeholder;
+      input.addEventListener("input", () => onInput(input.value));
+      parent.appendChild(input);
+    }
+
+    function duplicateNode(node) {
+      const copy = JSON.parse(JSON.stringify(node));
+      copy.id = uid("n");
+      copy.label = node.label + " (copia)";
+      copy.x = node.x + 30;
+      copy.y = node.y + 30;
+      state.nodes.push(copy);
+      selectNode(copy.id);
+      render();
+      flash("No duplicado.");
+    }
+
+    function syncPanels() {
+      byId("panelLeft").classList.toggle("open", state.ui.leftOpen);
+      byId("panelRight").classList.toggle("open", state.ui.rightOpen);
+    }
+
+    function renderDoc() {
+      byId("docPreview").textContent = buildDocument();
+    }
+
+    function nodesByKind(kind) { return state.nodes.filter((n) => n.kind === kind); }
+
+    function skillText(code) {
+      const all = Object.values(BNCC).flat();
+      const f = all.find((s) => s.code === code);
+      return f ? f.text : "[PLACEHOLDER]";
+    }
+
+    function buildDocument() {
+      const title = byId("projName").value.trim() || "Projeto sem nome";
+      const allFases = nodesByKind("fase");
+      if (!allFases.length) {
+        return title + "\n\n> Nenhuma fase criada ainda. Adicione uma Fase ao board.";
+      }
+
+      const docs = allFases.map((fase) => buildDocForFase(fase)).join("\n\n---\n\n");
+      return "# " + title + "\n\n" + docs;
+    }
+
+    function buildDocForFase(fase) {
+      const grade = (fase.serie || "1") + "o ano";
+      const age = fase.idade || "[PLACEHOLDER]";
+      const duration = fase.duracao || "[PLACEHOLDER]";
+      const intent = fase.intencao || "[PLACEHOLDER]";
+      const mechanics = fase.mecanicas || "[PLACEHOLDER]";
+      const narrative = fase.narrativa || "[PLACEHOLDER]";
+      const validation = fase.avaliacao || "[PLACEHOLDER]";
+
+      const skillSet = new Set();
+      state.nodes
+        .filter((n) => n.kind === "atividade")
+        .forEach((n) => (n.skills || []).forEach((c) => skillSet.add(c)));
+      const skillLines = skillSet.size
+        ? Array.from(skillSet).map((c) => "- " + c + ": " + skillText(c)).join("\n")
+        : "- [PLACEHOLDER] Marque habilidades BNCC nos nos.";
+
+      const flow = [];
+      Object.keys(NODE_TYPES).forEach((kind) => {
+        const items = nodesByKind(kind).filter((n) => n.id !== fase.id);
+        if (!items.length) return;
+        flow.push("### " + NODE_TYPES[kind].plural);
+        items.forEach((n, i) => {
+          const prefix = NODE_TYPES[kind].label.charAt(0).toUpperCase() + (i + 1);
+          let extra = "";
+          if (kind === "encontro") {
+            extra += " | tipo=" + (n.encounterType || "NPC");
+            if (n.encounterType === "Desafio") extra += " | dificuldade=" + (n.difficulty || 1);
+            if (n.fala) extra += ' | fala="' + n.fala + '"';
+          }
+          const skills = (kind === "atividade" && n.skills && n.skills.length) ? " | BNCC=" + n.skills.join(",") : "";
+          flow.push("- " + prefix + ": " + n.label + " | foco=" + (n.goal || "[PLACEHOLDER]") + extra + skills);
+        });
+        flow.push("");
+      });
+      if (!flow.length) flow.push("- [PLACEHOLDER] Crie nos no board.");
+
+      const connLines = state.edges.length
+        ? state.edges.map((e) => { const a = findNode(e.from); const b = findNode(e.to); return a && b ? "- " + a.label + " --> " + b.label : ""; }).filter(Boolean).join("\n")
+        : "- [PLACEHOLDER] Conecte os nos arrastando as bolinhas.";
+
+      const mapLines = state.nodes.filter((n) => n.id !== fase.id).length ? buildMapSummary() : "- [PLACEHOLDER] Board vazio.";
+      const curve = state.nodes.filter((n) => n.id !== fase.id).length ? buildCurve() : "- [PLACEHOLDER] Sem nos para medir.";
+      const mermaid = buildMermaidForFase(fase);
+
+      return [
+        "## " + fase.label,
+        "",
+        "### Visao geral",
+        "- Publico-alvo: criancas do " + grade + " (" + age + ")",
+        "- Duracao prevista: " + duration + " minutos",
+        "- Intencao pedagogica: " + intent,
+        "",
+        "### Objetivos de experiencia",
+        "- A crianca entende o objetivo em menos de 60 segundos.",
+        "- Feedback claro de acerto e erro a cada passo.",
+        "- Equilibrio entre descoberta, tentativa e celebracao.",
+        "",
+        "### Habilidades BNCC alvo",
+        skillLines,
+        "",
+        "### Fluxo e ritmo",
+        flow.join("\n").trimEnd(),
+        "",
+        "#### Conexoes da jornada",
+        connLines,
+        "",
+        "### Mecanicas e interacoes de sistema",
+        mechanics,
+        "",
+        "### Narrativa e storytelling ambiental",
+        narrative,
+        "",
+        "### Layout do mapa e orientacao",
+        "Resumo do board (nos conectados):",
+        mapLines,
+        "",
+        "### Curva de desafio e encontros",
+        curve,
+        "",
+        "### Plano de validacao",
+        validation,
+        "",
+        "### Diagrama (Mermaid)",
+        "```mermaid",
+        mermaid,
+        "```",
+        ""
+      ].join("\n");
+    }
+
+    function buildMapSummary() {
+      const inc = new Map();
+      const out = new Map();
+      state.nodes.forEach((n) => { inc.set(n.id, 0); out.set(n.id, 0); });
+      state.edges.forEach((e) => { out.set(e.from, (out.get(e.from) || 0) + 1); inc.set(e.to, (inc.get(e.to) || 0) + 1); });
+      const starts = state.nodes.filter((n) => (inc.get(n.id) || 0) === 0).map((n) => n.label);
+      const ends = state.nodes.filter((n) => (out.get(n.id) || 0) === 0).map((n) => n.label);
+      const counts = Object.keys(NODE_TYPES)
+        .map((k) => { const c = nodesByKind(k).length; return c ? NODE_TYPES[k].plural + "=" + c : null; })
+        .filter(Boolean)
+        .join(", ");
+      return [
+        "- Total de nos: " + state.nodes.length + " (" + (counts || "0") + ")",
+        "- Conexoes: " + state.edges.length,
+        "- Entradas: " + (starts.length ? starts.join(", ") : "[PLACEHOLDER]"),
+        "- Saidas: " + (ends.length ? ends.join(", ") : "[PLACEHOLDER]")
+      ].join("\n");
+    }
+
+    function buildCurve() {
+      const desafios = nodesByKind("encontro").filter((n) => n.encounterType === "Desafio");
+      const vals = desafios.map((n) => Number(n.difficulty || 1));
+      const max = vals.length ? Math.max(...vals) : 0;
+      const avg = vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1) : "0.0";
+      const branch = (state.edges.length / state.nodes.length).toFixed(2);
+      const encontros = nodesByKind("encontro");
+      const encLine = encontros.length
+        ? "- Encontros: " + encontros.map((e) => e.label + " (" + (e.encounterType || "NPC") + ")").join(", ")
+        : "- Encontros: nenhum no board.";
+      return [
+        "- Pico de dificuldade dos desafios: " + max + "/10",
+        "- Dificuldade media dos desafios: " + avg + "/10",
+        "- Densidade de escolhas: " + branch,
+        encLine
+      ].join("\n");
+    }
+
+    function mmText(s) {
+      return String(s || "").replace(/"/g, "'").replace(/\s+/g, " ").trim();
+    }
+
+    function mmShape(node, id, text) {
+      const t = '"' + text + '"';
+      switch (node.kind) {
+        case "fase": return id + "([" + t + "])";
+        case "atividade": return id + "[[" + t + "]]";
+        case "tarefa": return id + "[" + t + "]";
+        case "encontro": return (node.encounterType === "Desafio") ? id + "{" + t + "}" : id + "{{" + t + "}}";
+        case "mecanica": return id + "[/" + t + "/]";
+        default: return id + "[" + t + "]";
+      }
+    }
+
+    function buildMermaidForFase(fase) {
+      const nodes = state.nodes.filter((n) => n.id !== fase.id);
+      if (!nodes.length) return "flowchart TD\n  F[\"" + mmText(fase.label) + "\"]";
+      const lines = ["flowchart TD"];
+      const idMap = new Map();
+      idMap.set(fase.id, "F");
+      nodes.forEach((n, i) => idMap.set(n.id, "N" + i));
+
+      lines.push("  " + mmShape(fase, "F", mmText(fase.label)));
+      nodes.forEach((n) => {
+        const id = idMap.get(n.id);
+        let label = n.label;
+        if (n.kind === "encontro") label = (n.encounterType || "NPC") + ": " + label;
+        lines.push("  " + mmShape(n, id, mmText(label)));
+      });
+
+      if (state.edges.length) {
+        state.edges.forEach((e) => {
+          const a = idMap.get(e.from);
+          const b = idMap.get(e.to);
+          if (a && b) lines.push("  " + a + " --> " + b);
+        });
+      }
+
+      const byKind = { fase: ["F"] };
+      nodes.forEach((n) => { (byKind[n.kind] = byKind[n.kind] || []).push(idMap.get(n.id)); });
+      Object.keys(byKind).forEach((k) => {
+        lines.push("  classDef " + k + " fill:" + NODE_TYPES[k].soft + ",stroke:" + NODE_TYPES[k].color + ",color:#16314a,stroke-width:2px;");
+      });
+      Object.keys(byKind).forEach((k) => {
+        lines.push("  class " + byKind[k].join(",") + " " + k + ";");
+      });
+
+      return lines.join("\n");
+    }
+
+    function autoArrange() {
+      let y = 80;
+      Object.keys(NODE_TYPES).forEach((kind) => {
+        const items = nodesByKind(kind);
+        if (!items.length) return;
+        layoutRow(items, 160, y);
+        y += 200;
+      });
+      render();
+      fitView();
+      flash("Board organizado.");
+    }
+
+    function layoutRow(nodes, startX, y) {
+      const gap = 230;
+      nodes.forEach((n, i) => { n.x = startX + i * gap; n.y = y; });
+    }
+
+    function fitView() {
+      if (!state.nodes.length) { resetZoom(); return; }
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      state.nodes.forEach((n) => {
+        const s = nodeSize(n);
+        minX = Math.min(minX, n.x);
+        minY = Math.min(minY, n.y);
+        maxX = Math.max(maxX, n.x + s.w);
+        maxY = Math.max(maxY, n.y + s.h);
+      });
+      const pad = 80;
+      const rect = board.getBoundingClientRect();
+      const w = maxX - minX + pad * 2;
+      const h = maxY - minY + pad * 2;
+      const scale = clamp(Math.min(rect.width / w, rect.height / h), 0.3, 1.6);
+      state.view.scale = scale;
+      state.view.x = rect.width / 2 - ((minX + maxX) / 2) * scale;
+      state.view.y = rect.height / 2 - ((minY + maxY) / 2) * scale;
+      applyView();
+      renderEdges();
+    }
+
+    function zoomByButton(factor) {
+      const rect = board.getBoundingClientRect();
+      const mx = rect.width / 2;
+      const my = rect.height / 2;
+      const newScale = clamp(state.view.scale * factor, 0.3, 2.5);
+      const wx = (mx - state.view.x) / state.view.scale;
+      const wy = (my - state.view.y) / state.view.scale;
+      state.view.x = mx - wx * newScale;
+      state.view.y = my - wy * newScale;
+      state.view.scale = newScale;
+      applyView();
+      renderEdges();
+    }
+
+    function resetZoom() {
+      state.view.scale = 1;
+      applyView();
+      renderEdges();
+    }
+
+    function payload() {
+      return {
+        projName: byId("projName").value,
+        nodes: state.nodes,
+        edges: state.edges,
+        view: state.view
+      };
+    }
+
+    function saveLocal() {
+      localStorage.setItem("level-lab-board", JSON.stringify(payload()));
+      flash("Projeto salvo.");
+    }
+
+    function loadLocal() {
+      const raw = localStorage.getItem("level-lab-board");
+      if (!raw) { flash("Nenhum projeto salvo.", true); return; }
+      try {
+        const p = JSON.parse(raw);
+        byId("projName").value = p.projName || "Novo projeto BNCC";
+        state.nodes = Array.isArray(p.nodes) ? p.nodes : [];
+        state.edges = Array.isArray(p.edges) ? p.edges : [];
+        state.nodes.forEach((n) => { if (!n.skills) n.skills = []; });
+        if (p.view) state.view = p.view;
+        state.selectedNodeId = null;
+        state.selectedEdgeId = null;
+        state.ui.rightOpen = false;
+        applyView();
+        syncPanels();
+        render();
+        flash("Projeto carregado.");
+      } catch (err) {
+        flash("Falha ao carregar.", true);
+      }
+    }
+
+    async function copyDoc() {
+      try { await navigator.clipboard.writeText(buildDocument()); flash("Documento copiado."); }
+      catch (e) { flash("Falha ao copiar.", true); }
+    }
+
+    function downloadMd() {
+      downloadFile(slug() + ".md", buildDocument(), "text/markdown");
+      flash("Markdown baixado.");
+    }
+
+    function downloadJson() {
+      downloadFile(slug() + ".json", JSON.stringify(payload(), null, 2), "application/json");
+      flash("JSON baixado.");
+    }
+
+    function downloadFile(name, content, type) {
+      const blob = new Blob([content], { type: type + ";charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function slug() {
+      return (byId("projName").value.trim() || "projeto-bncc").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "projeto-bncc";
+    }
+
+    function seedExample() {
+      const f1 = addNode("fase", 360, 60);
+      f1.label = "Fase 1: Feira dos numeros";
+      f1.goal = "Introduzir contagem e troca";
+      f1.serie = "1";
+      f1.idade = "6 a 7 anos";
+      f1.duracao = "25";
+      f1.intencao = "Desenvolver o conceito de quantidade e correspondencia um-para-um atraves de uma narrativa de compra e venda.";
+      f1.mecanicas = "As criancas contam moedas e pagam em barracas. Feedback visual mostra se o troco esta correto.";
+      f1.narrativa = "Um mercado colorido onde criancas sao vendedores ou clientes.";
+      f1.avaliacao = "As criancas conseguem contar ate 20 e fazer trocas simples?";
+
+      const a1 = addNode("atividade", 350, 250);
+      a1.label = "Explorar a feira";
+      a1.goal = "Contextualizar o cenario";
+      a1.skills = ["EF01MA01"];
+
+      const t1 = addNode("tarefa", 160, 450);
+      t1.label = "Contar moedas";
+      t1.goal = "Contar ate 20";
+
+      const t2 = addNode("tarefa", 540, 450);
+      t2.label = "Pagar na barraca";
+      t2.goal = "Somar precos simples";
+
+      const e1 = addNode("encontro", 120, 660);
+      e1.label = "Vendedor pede ajuda";
+      e1.encounterType = "NPC";
+      e1.fala = "Pode contar quantas moedas tenho aqui?";
+      e1.goal = "Motivar a contagem";
+
+      const m1 = addNode("mecanica", 380, 660);
+      m1.label = "Arrastar moedas";
+      m1.goal = "Manipular objetos para contar";
+
+      const E = (a, b) => state.edges.push({ id: uid("e"), from: a.id, to: b.id });
+      E(f1, a1);
+      E(a1, t1);
+      E(a1, t2);
+      E(e1, t1);
+      E(m1, t1);
+
+      state.selectedNodeId = null;
+      state.ui.rightOpen = false;
+    }
+
+    function flash(msg, isError) {
+      const el = byId("status");
+      el.textContent = msg;
+      el.className = "status show" + (isError ? " error" : "");
+      clearTimeout(flash._t);
+      flash._t = setTimeout(() => { el.className = "status" + (isError ? " error" : ""); }, 1800);
+    }
+
+    function findNode(id) { return state.nodes.find((n) => n.id === id); }
+    function byId(id) { return document.getElementById(id); }
+    function uid(prefix) { return prefix + Date.now().toString(36) + Math.floor(Math.random() * 100000).toString(36); }
+    function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+    function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+  </script>
+</body>
+</html>
