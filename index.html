@@ -21,6 +21,7 @@
       --atividade: #2b6cb0;  --atividade-soft: #e8f1fb;
       --tarefa: #1f9d6b;     --tarefa-soft: #e3f6ee;
       --encontro: #e08a2b;   --encontro-soft: #fdf0db;
+      --feedback: #b820b1;   --feedback-soft: #fdd9fb;
       --mecanica: #0e8f9e;   --mecanica-soft: #ddf5f7;
 
       --danger: #d24a4a;
@@ -92,10 +93,81 @@
     .node.atividade { border-color: var(--atividade); width: 190px; }
     .node.tarefa    { border-color: var(--tarefa);    width: 168px; }
     .node.encontro  { border-color: var(--encontro);  width: 180px; }
+    .node.feedback  { border-color: var(--feedback);  width: 180px; }
     .node.mecanica  { border-color: var(--mecanica);  width: 170px; }
 
     .node.selected {
       box-shadow: 0 0 0 3px rgba(255, 138, 61, 0.55), var(--shadow-md);
+    }
+
+    .node.multi-selected {
+      box-shadow: 0 0 0 3px rgba(107, 78, 216, 0.55), var(--shadow-md);
+      border-style: solid;
+    }
+
+    .node-check {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      width: 18px;
+      height: 18px;
+      border-radius: 5px;
+      border: 2px solid var(--line);
+      background: #fff;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      opacity: 0;
+      transition: opacity 120ms ease, background 120ms ease, border-color 120ms ease;
+      z-index: 2;
+    }
+
+    .node:hover .node-check,
+    .node.selected .node-check,
+    .node.multi-selected .node-check { opacity: 1; }
+
+    .node-check.checked {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .node-check.checked::after {
+      content: "\2713";
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .multi-toolbar {
+      left: 50%;
+      transform: translateX(-50%);
+      top: 76px;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      font-size: 0.84rem;
+      color: var(--ink);
+    }
+
+    .multi-toolbar.visible { display: flex; }
+
+    .multi-toolbar .count {
+      font-family: "Nunito", sans-serif;
+      font-weight: 800;
+      color: var(--fase);
+      min-width: 20px;
+    }
+
+    #marquee {
+      position: absolute;
+      border: 2px dashed var(--accent);
+      background: rgba(255, 138, 61, 0.08);
+      border-radius: 3px;
+      pointer-events: none;
+      display: none;
+      z-index: 10;
     }
 
     .node-chip {
@@ -117,6 +189,7 @@
     .node.atividade .node-chip { color: var(--atividade); background: var(--atividade-soft); }
     .node.tarefa    .node-chip { color: var(--tarefa);    background: var(--tarefa-soft); }
     .node.encontro  .node-chip { color: var(--encontro);  background: var(--encontro-soft); }
+    .node.feedback  .node-chip { color: var(--feedback);  background: var(--feedback-soft); }
     .node.mecanica  .node-chip { color: var(--mecanica);  background: var(--mecanica-soft); }
 
     .node-label {
@@ -301,6 +374,7 @@
     .btn-atividade { background: var(--atividade); color: #fff; }
     .btn-tarefa    { background: var(--tarefa);    color: #fff; }
     .btn-encontro  { background: var(--encontro);  color: #fff; }
+    .btn-feedback  { background: var(--feedback);  color: #fff; }
     .btn-mecanica  { background: var(--mecanica);  color: #fff; }
     .btn-accent { background: var(--accent); color: #fff; }
     .btn-ghost { background: transparent; color: #2a4b63; }
@@ -474,6 +548,7 @@
         <path id="tempEdge" class="edge-temp" style="display:none"></path>
       </svg>
       <div id="nodesG"></div>
+      <div id="marquee"></div>
     </div>
   </div>
 
@@ -492,6 +567,7 @@
     <button id="addAtividade" class="btn-atividade" title="Adicionar Atividade">+ &#128218; Atividade</button>
     <button id="addTarefa" class="btn-tarefa" title="Adicionar Tarefa">+ &#9989; Tarefa</button>
     <button id="addEncontro" class="btn-encontro" title="Adicionar Encontro (NPC ou Desafio)">+ &#128172; Encontro</button>
+    <button id="addFeedback" class="btn-feedback" title="Adicionar Feedback">+ &#128172; Feedback</button>
     <button id="addMecanica" class="btn-mecanica" title="Adicionar Mecanica">+ &#9881; Mecanica</button>
     <span class="sep"></span>
     <button id="autoArrange" class="btn-ghost" title="Auto-organizar">Organizar</button>
@@ -503,7 +579,9 @@
   <div class="floating top-right">
     <button id="saveLocal" class="btn-ghost">Salvar</button>
     <button id="loadLocal" class="btn-ghost">Carregar</button>
+    <button id="importJsonBtn" class="btn-ghost">Importar .json</button>
   </div>
+  <input type="file" id="importFile" accept=".json" style="display:none">
 
   <!-- ZOOM -->
   <div class="floating zoom">
@@ -515,10 +593,20 @@
 
   <!-- HINT BAR -->
   <div class="floating hint-bar">
-    <span><b>Duplo clique</b> cria um no</span>
-    <span><b>Arraste a bolinha</b> para conectar</span>
-    <span><b>Duplo clique no no</b> renomeia</span>
+    <span><b>Arraste no vazio</b> marquee de selecao</span>
+    <span><b>Botao do meio / Direito</b> arrastar tela</span>
+    <span><b>Ctrl+clique</b> selecao multipla</span>
+    <span><b>Duplo clique</b> cria no</span>
     <span><b>Delete</b> remove</span>
+  </div>
+
+  <!-- MULTI-SELECT TOOLBAR -->
+  <div id="multiToolbar" class="floating multi-toolbar">
+    <span class="count" id="multiCount">0</span>
+    <span>nos selecionados</span>
+    <span class="sep" style="width:1px;height:22px;background:var(--line);margin:0 2px;"></span>
+    <button id="multiDelete" class="btn-danger" style="padding:5px 10px;font-size:0.8rem;">Remover</button>
+    <button id="multiDeselect" class="btn-ghost" style="padding:5px 10px;font-size:0.8rem;">Limpar</button>
   </div>
 
   <!-- LEFT PANEL: Documento -->
@@ -553,9 +641,19 @@
   <script>
     const BNCC = {
       "1": [
-        { code: "EF01MA01", text: "Contar e comparar quantidades com numeros naturais." },
+        { code: "EF01MA01", text: "Utilizar numeros naturais como indicador de quantidade." },
         { code: "EF01MA03", text: "Resolver adicao e subtracao com apoio de imagens e materiais." },
-        { code: "EF01MA06", text: "Descrever localizacao de objetos e pessoas no espaco." }
+        { code: "EF01MA05", text: "Comparar numeros naturais de ate duas ordens em situacoes cotidianas, com e sem suporte da reta numerica." },
+        { code: "EF01MA06", text: "Descrever localizacao de objetos e pessoas no espaco." },
+        { code: "EF01MA08", text: "Resolver e elaborar problemas de adicao e subtracao com numeros de ate dois algarismos, com apoio de imagens e material manipulavel." },
+        { code: "EF01MA10", text: "Descrever elementos ausentes em sequencias recursivas de numeros, objetos ou figuras, apos reconhecer um padrao." },
+        { code: "EF01MA12", text: "Descrever a localizacao de pessoas e objetos no espaco em relacao a um ponto de referencia." },
+        { code: "EF01MA13", text: "Relacionar figuras geometricas espaciais (cones, cilindros, esferas e blocos retangulares) a objetos familiares." },
+        { code: "EF01MA14", text: "Identificar e nomear figuras planas (circulo, quadrado, retangulo e triangulo) em diferentes disposicoes." },
+        { code: "EF01MA16", text: "Relatar sequencia de acontecimentos relativos a um dia, utilizando, quando possivel, os horarios dos eventos." },
+        { code: "EF01MA19", text: "Reconhecer e relacionar valores de moedas e cedulas do sistema monetario." },
+        { code: "EF01GE01", text: "Descrever caracteristicas dos seus lugares de vivencia e comparar com outros lugares." },
+        { code: "EF01GE05", text: "Observar e comparar ritmos e atividades do cotidiano em diferentes lugares." }
       ],
       "2": [
         { code: "EF02MA03", text: "Resolver adicao e subtracao com diferentes estrategias." },
@@ -584,6 +682,7 @@
       atividade: { label: "Atividade", plural: "Atividades", w: 190, color: "#2b6cb0", soft: "#e8f1fb" },
       tarefa:    { label: "Tarefa",    plural: "Tarefas",    w: 168, color: "#1f9d6b", soft: "#e3f6ee" },
       encontro:  { label: "Encontro",  plural: "Encontros",  w: 180, color: "#e08a2b", soft: "#fdf0db" },
+      feedback:  { label: "Feedback",  plural: "Feedbacks",  w: 180, color: "#b85f20", soft: "#fde9d9" },
       mecanica:  { label: "Mecanica",  plural: "Mecanicas",  w: 170, color: "#0e8f9e", soft: "#ddf5f7" }
     };
 
@@ -592,6 +691,7 @@
       atividade: "Nova atividade",
       tarefa: "Nova tarefa",
       encontro: "Novo encontro",
+      feedback: "Novo feedback",
       mecanica: "Nova mecanica"
     };
 
@@ -601,6 +701,7 @@
       edges: [],
       selectedNodeId: null,
       selectedEdgeId: null,
+      selectedNodeIds: new Set(),
       view: { scale: 1, x: 0, y: 0 },
       ui: { leftOpen: false, rightOpen: false }
     };
@@ -635,6 +736,8 @@
 
       byId("saveLocal").addEventListener("click", saveLocal);
       byId("loadLocal").addEventListener("click", loadLocal);
+      byId("importJsonBtn").addEventListener("click", () => byId("importFile").click());
+      byId("importFile").addEventListener("change", importFromFile);
       byId("copyDoc").addEventListener("click", copyDoc);
       byId("downloadMd").addEventListener("click", downloadMd);
       byId("downloadJson").addEventListener("click", downloadJson);
@@ -643,9 +746,13 @@
       byId("zoomOut").addEventListener("click", () => zoomByButton(1 / 1.2));
       byId("zoomReset").addEventListener("click", resetZoom);
 
+      byId("multiDelete").addEventListener("click", deleteMultiSelected);
+      byId("multiDeselect").addEventListener("click", () => { clearMultiSelect(); render(); });
+
       byId("projName").addEventListener("input", renderDoc);
 
       board.addEventListener("pointerdown", onBoardPointerDown);
+      board.addEventListener("contextmenu", (e) => e.preventDefault());
       window.addEventListener("pointermove", onPointerMove);
       window.addEventListener("pointerup", onPointerUp);
       board.addEventListener("dblclick", onBoardDblClick);
@@ -700,6 +807,9 @@
         node.encounterType = "NPC";
         node.fala = "";
       }
+      if (kind === "feedback") {
+        node.fala = "";
+      }
       if (kind === "fase") {
         node.serie = "1";
         node.idade = "6 a 7 anos";
@@ -723,6 +833,7 @@
           ? String.fromCodePoint(0x1F3AF)
           : String.fromCodePoint(0x1F4AC);
       }
+      if (kind === "feedback") return String.fromCodePoint(0x1F4AC);
       if (kind === "mecanica") return String.fromCodePoint(0x2699);
       return "";
     }
@@ -751,7 +862,63 @@
       syncPanels();
     }
 
+    function toggleMultiSelect(id) {
+      if (state.selectedNodeIds.has(id)) {
+        state.selectedNodeIds.delete(id);
+      } else {
+        state.selectedNodeIds.add(id);
+      }
+      state.selectedNodeId = null;
+      state.selectedEdgeId = null;
+      state.ui.rightOpen = false;
+      syncPanels();
+      render();
+      updateMultiToolbar();
+    }
+
+    function clearMultiSelect() {
+      state.selectedNodeIds.clear();
+      updateMultiToolbar();
+    }
+
+    function selectAllNodes() {
+      state.nodes.forEach((n) => state.selectedNodeIds.add(n.id));
+      state.selectedNodeId = null;
+      state.selectedEdgeId = null;
+      state.ui.rightOpen = false;
+      syncPanels();
+      render();
+      updateMultiToolbar();
+    }
+
+    function deleteMultiSelected() {
+      if (state.selectedNodeIds.size === 0) return;
+      const ids = new Set(state.selectedNodeIds);
+      state.nodes = state.nodes.filter((n) => !ids.has(n.id));
+      state.edges = state.edges.filter((e) => !ids.has(e.from) && !ids.has(e.to));
+      state.selectedNodeIds.clear();
+      state.selectedNodeId = null;
+      state.selectedEdgeId = null;
+      state.ui.rightOpen = false;
+      syncPanels();
+      render();
+      updateMultiToolbar();
+      flash(ids.size + " nos removidos.");
+    }
+
+    function updateMultiToolbar() {
+      const tb = byId("multiToolbar");
+      const cnt = byId("multiCount");
+      const n = state.selectedNodeIds.size;
+      cnt.textContent = n;
+      tb.classList.toggle("visible", n > 0);
+    }
+
     function deleteSelected() {
+      if (state.selectedNodeIds.size > 0) {
+        deleteMultiSelected();
+        return;
+      }
       if (state.selectedNodeId) {
         const id = state.selectedNodeId;
         state.nodes = state.nodes.filter((n) => n.id !== id);
@@ -781,6 +948,16 @@
       const nodeEl = e.target.closest(".node");
       if (nodeEl) {
         if (e.target.getAttribute("contenteditable") === "true") return;
+        if (e.ctrlKey || e.metaKey) {
+          toggleMultiSelect(nodeEl.dataset.id);
+          e.preventDefault();
+          return;
+        }
+        if (state.selectedNodeIds.size > 0 && state.selectedNodeIds.has(nodeEl.dataset.id)) {
+          startDragMulti(nodeEl.dataset.id, e);
+          e.preventDefault();
+          return;
+        }
         startDragNode(nodeEl.dataset.id, e);
         e.preventDefault();
         return;
@@ -799,15 +976,31 @@
       syncPanels();
       render();
 
-      inter.mode = "pan";
-      inter.startX = e.clientX - state.view.x;
-      inter.startY = e.clientY - state.view.y;
-      board.classList.add("panning");
+      if (e.button === 1 || e.button === 2) {
+        inter.mode = "pan";
+        inter.startX = e.clientX - state.view.x;
+        inter.startY = e.clientY - state.view.y;
+        board.classList.add("panning");
+        e.preventDefault();
+      } else {
+        if (!e.ctrlKey && !e.metaKey) clearMultiSelect();
+        inter.mode = "marquee";
+        inter.startX = e.clientX;
+        inter.startY = e.clientY;
+        inter.marqueeAdditive = !!(e.ctrlKey || e.metaKey);
+        const m = byId("marquee");
+        m.style.display = "block";
+        m.style.left = "0px";
+        m.style.top = "0px";
+        m.style.width = "0px";
+        m.style.height = "0px";
+      }
     }
 
     function startDragNode(id, e) {
       const node = findNode(id);
       if (!node) return;
+      clearMultiSelect();
       selectNode(id);
       render();
       inter.mode = "drag";
@@ -817,6 +1010,22 @@
       inter.nodeStart = { x: node.x, y: node.y };
       const el = document.getElementById("node-" + id);
       if (el) el.classList.add("dragging");
+    }
+
+    function startDragMulti(id, e) {
+      if (!state.selectedNodeIds.has(id)) return;
+      inter.mode = "drag-multi";
+      inter.startX = e.clientX;
+      inter.startY = e.clientY;
+      inter.multiStarts = {};
+      state.selectedNodeIds.forEach((nid) => {
+        const n = findNode(nid);
+        if (n) inter.multiStarts[nid] = { x: n.x, y: n.y };
+      });
+      state.selectedNodeIds.forEach((nid) => {
+        const el = document.getElementById("node-" + nid);
+        if (el) el.classList.add("dragging");
+      });
     }
 
     function startConnect(id, e) {
@@ -850,6 +1059,22 @@
         return;
       }
 
+      if (inter.mode === "drag-multi") {
+        const dx = (e.clientX - inter.startX) / state.view.scale;
+        const dy = (e.clientY - inter.startY) / state.view.scale;
+        state.selectedNodeIds.forEach((nid) => {
+          const n = findNode(nid);
+          const s = inter.multiStarts[nid];
+          if (n && s) {
+            n.x = s.x + dx;
+            n.y = s.y + dy;
+            positionNode(n);
+          }
+        });
+        renderEdges();
+        return;
+      }
+
       if (inter.mode === "connect") {
         const from = nodeCenter(findNode(inter.connectFrom));
         const p = screenToWorld(e.clientX, e.clientY);
@@ -861,6 +1086,40 @@
         } else {
           drawTemp(from.x, from.y, p.x, p.y);
         }
+        return;
+      }
+
+      if (inter.mode === "marquee") {
+        const ws = screenToWorld(inter.startX, inter.startY);
+        const we = screenToWorld(e.clientX, e.clientY);
+        const rx1 = Math.min(ws.x, we.x);
+        const ry1 = Math.min(ws.y, we.y);
+        const rx2 = Math.max(ws.x, we.x);
+        const ry2 = Math.max(ws.y, we.y);
+        const m = byId("marquee");
+        m.style.left = rx1 + "px";
+        m.style.top = ry1 + "px";
+        m.style.width = (rx2 - rx1) + "px";
+        m.style.height = (ry2 - ry1) + "px";
+
+        const hovered = new Set();
+        state.nodes.forEach((n) => {
+          const s = nodeSize(n);
+          if (n.x < rx2 && n.x + s.w > rx1 && n.y < ry2 && n.y + s.h > ry1) {
+            hovered.add(n.id);
+          }
+        });
+        inter.marqueeHovered = hovered;
+
+        state.nodes.forEach((n) => {
+          const el = document.getElementById("node-" + n.id);
+          if (!el) return;
+          if (hovered.has(n.id)) {
+            el.classList.add("multi-selected");
+          } else if (!inter.marqueeAdditive || !state.selectedNodeIds.has(n.id)) {
+            el.classList.remove("multi-selected");
+          }
+        });
         return;
       }
     }
@@ -880,6 +1139,27 @@
         const el = document.getElementById("node-" + inter.nodeId);
         if (el) el.classList.remove("dragging");
         renderDoc();
+      }
+
+      if (inter.mode === "drag-multi") {
+        state.selectedNodeIds.forEach((nid) => {
+          const el = document.getElementById("node-" + nid);
+          if (el) el.classList.remove("dragging");
+        });
+        inter.multiStarts = null;
+        renderDoc();
+      }
+
+      if (inter.mode === "marquee") {
+        const m = byId("marquee");
+        m.style.display = "none";
+        if (inter.marqueeHovered && inter.marqueeHovered.size > 0) {
+          if (!inter.marqueeAdditive) clearMultiSelect();
+          inter.marqueeHovered.forEach((id) => state.selectedNodeIds.add(id));
+          inter.marqueeHovered = null;
+          updateMultiToolbar();
+        }
+        render();
       }
 
       board.classList.remove("panning");
@@ -921,10 +1201,14 @@
         return;
       }
       if (e.key === "Delete" || e.key === "Backspace") {
-        if (state.selectedNodeId || state.selectedEdgeId) { e.preventDefault(); deleteSelected(); }
+        if (state.selectedNodeId || state.selectedEdgeId || state.selectedNodeIds.size > 0) { e.preventDefault(); deleteSelected(); }
       } else if (e.key === "Escape") {
         state.selectedNodeId = null; state.selectedEdgeId = null; state.ui.rightOpen = false;
+        clearMultiSelect();
         syncPanels(); render();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "a") {
+        e.preventDefault();
+        selectAllNodes();
       }
     }
 
@@ -970,19 +1254,30 @@
     function renderNodes() {
       nodesG.innerHTML = "";
       state.nodes.forEach((node) => {
+        const isSingle = node.id === state.selectedNodeId;
+        const isMulti = state.selectedNodeIds.has(node.id);
         const el = document.createElement("div");
-        el.className = "node " + node.kind + (node.id === state.selectedNodeId ? " selected" : "");
+        el.className = "node " + node.kind + (isSingle ? " selected" : "") + (isMulti ? " multi-selected" : "");
         el.id = "node-" + node.id;
         el.dataset.id = node.id;
         el.style.left = node.x + "px";
         el.style.top = node.y + "px";
+
+        const check = document.createElement("div");
+        check.className = "node-check" + (isMulti ? " checked" : "");
+        check.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          toggleMultiSelect(node.id);
+        });
+        el.appendChild(check);
 
         const chip = document.createElement("span");
         chip.className = "node-chip";
         if (node.kind === "encontro" && node.encounterType) {
           chip.textContent = nodeIcon(node.kind, node.encounterType) + " Encontro - " + node.encounterType;
         } else {
-          chip.textContent = nodeIcon(node.kind, node.encounterType) + " " + NODE_TYPES[node.kind].label;
+          const info = NODE_TYPES[node.kind] || { label: "No" };
+          chip.textContent = nodeIcon(node.kind, node.encounterType) + " " + info.label;
         }
         el.appendChild(chip);
 
@@ -999,7 +1294,7 @@
           el.appendChild(goal);
         }
 
-        if (node.kind === "encontro" && node.fala) {
+        if ((node.kind === "encontro" || node.kind === "feedback") && node.fala) {
           const fala = document.createElement("div");
           fala.className = "node-fala";
           fala.textContent = node.fala;
@@ -1127,6 +1422,11 @@
           const oldKind = node.kind;
           node.kind = kind;
           if (kind === "encontro" && node.encounterType === undefined) { node.encounterType = "NPC"; node.fala = ""; }
+          if (kind === "feedback") {
+            node.fala = node.fala || "";
+            delete node.encounterType;
+            delete node.difficulty;
+          }
           if (kind === "fase" && oldKind !== "fase") {
             node.serie = "1";
             node.idade = "6 a 7 anos";
@@ -1236,6 +1536,18 @@
           row.appendChild(val);
           body.appendChild(row);
         }
+      }
+
+      // feedback-specific
+      if (node.kind === "feedback") {
+        const fl = document.createElement("label");
+        fl.textContent = "Texto de feedback";
+        body.appendChild(fl);
+        const ta = document.createElement("textarea");
+        ta.value = node.fala || "";
+        ta.placeholder = "Ex: Boa tentativa. Tente novamente observando a dica visual.";
+        ta.addEventListener("input", () => { node.fala = ta.value; render(); });
+        body.appendChild(ta);
       }
 
       addField(body, "Foco pedagogico", "text", node.goal, (v) => { node.goal = v; render(); }, "Ex: somar valores ate 20");
@@ -1373,6 +1685,9 @@
             if (n.encounterType === "Desafio") extra += " | dificuldade=" + (n.difficulty || 1);
             if (n.fala) extra += ' | fala="' + n.fala + '"';
           }
+          if (kind === "feedback" && n.fala) {
+            extra += ' | feedback="' + n.fala + '"';
+          }
           const skills = (kind === "atividade" && n.skills && n.skills.length) ? " | BNCC=" + n.skills.join(",") : "";
           flow.push("- " + prefix + ": " + n.label + " | foco=" + (n.goal || "[PLACEHOLDER]") + extra + skills);
         });
@@ -1482,6 +1797,7 @@
         case "atividade": return id + "[[" + t + "]]";
         case "tarefa": return id + "[" + t + "]";
         case "encontro": return (node.encounterType === "Desafio") ? id + "{" + t + "}" : id + "{{" + t + "}}";
+        case "feedback": return id + "((" + t + "))";
         case "mecanica": return id + "[/" + t + "/]";
         default: return id + "[" + t + "]";
       }
@@ -1500,6 +1816,7 @@
         const id = idMap.get(n.id);
         let label = n.label;
         if (n.kind === "encontro") label = (n.encounterType || "NPC") + ": " + label;
+        if (n.kind === "feedback") label = "Feedback: " + label;
         lines.push("  " + mmShape(n, id, mmText(label)));
       });
 
@@ -1592,6 +1909,40 @@
       };
     }
 
+    function normalizePayload(p) {
+      const allowedKinds = new Set(Object.keys(NODE_TYPES));
+      const inputNodes = Array.isArray(p.nodes) ? p.nodes : [];
+      const nodes = inputNodes
+        .filter((n) => n && typeof n === "object" && allowedKinds.has(n.kind) && typeof n.id === "string")
+        .map((n) => {
+          const nn = Object.assign({}, n);
+          if (!Array.isArray(nn.skills)) nn.skills = [];
+          if (nn.kind === "encontro") {
+            if (nn.encounterType !== "NPC" && nn.encounterType !== "Desafio") nn.encounterType = "NPC";
+            if (nn.encounterType === "Desafio" && !nn.difficulty) nn.difficulty = 4;
+            if (nn.encounterType === "NPC") delete nn.difficulty;
+          }
+          if (nn.kind === "feedback") {
+            if (typeof nn.fala !== "string") nn.fala = "";
+            delete nn.encounterType;
+            delete nn.difficulty;
+          }
+          return nn;
+        });
+
+      const ids = new Set(nodes.map((n) => n.id));
+      const edges = (Array.isArray(p.edges) ? p.edges : []).filter(
+        (e) => e && typeof e === "object" && ids.has(e.from) && ids.has(e.to)
+      );
+
+      return {
+        projName: p.projName || "Novo projeto BNCC",
+        nodes,
+        edges,
+        view: p.view || state.view
+      };
+    }
+
     function saveLocal() {
       localStorage.setItem("level-lab-board", JSON.stringify(payload()));
       flash("Projeto salvo.");
@@ -1601,18 +1952,19 @@
       const raw = localStorage.getItem("level-lab-board");
       if (!raw) { flash("Nenhum projeto salvo.", true); return; }
       try {
-        const p = JSON.parse(raw);
-        byId("projName").value = p.projName || "Novo projeto BNCC";
-        state.nodes = Array.isArray(p.nodes) ? p.nodes : [];
-        state.edges = Array.isArray(p.edges) ? p.edges : [];
-        state.nodes.forEach((n) => { if (!n.skills) n.skills = []; });
+        const p = normalizePayload(JSON.parse(raw));
+        byId("projName").value = p.projName;
+        state.nodes = p.nodes;
+        state.edges = p.edges;
         if (p.view) state.view = p.view;
         state.selectedNodeId = null;
         state.selectedEdgeId = null;
+        state.selectedNodeIds.clear();
         state.ui.rightOpen = false;
         applyView();
         syncPanels();
         render();
+        updateMultiToolbar();
         flash("Projeto carregado.");
       } catch (err) {
         flash("Falha ao carregar.", true);
@@ -1632,6 +1984,35 @@
     function downloadJson() {
       downloadFile(slug() + ".json", JSON.stringify(payload(), null, 2), "application/json");
       flash("JSON baixado.");
+    }
+
+    function importFromFile(e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const p = normalizePayload(JSON.parse(ev.target.result));
+          byId("projName").value = p.projName;
+          state.nodes = p.nodes;
+          state.edges = p.edges;
+          if (p.view) state.view = p.view;
+          state.selectedNodeId = null;
+          state.selectedEdgeId = null;
+          state.selectedNodeIds.clear();
+          state.ui.rightOpen = false;
+          applyView();
+          syncPanels();
+          render();
+          updateMultiToolbar();
+          flash("Projeto importado: " + file.name);
+        } catch (err) {
+          flash("Arquivo invalido ou corrompido.", true);
+        } finally {
+          e.target.value = "";
+        }
+      };
+      reader.readAsText(file);
     }
 
     function downloadFile(name, content, type) {
