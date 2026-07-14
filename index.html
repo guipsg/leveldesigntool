@@ -499,6 +499,174 @@
 
     .empty-inspector { color: var(--muted); font-size: 0.86rem; line-height: 1.4; }
 
+    /* Dashboard */
+    .dash-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(22, 49, 74, 0.35);
+      z-index: 50;
+      display: none;
+      opacity: 0;
+      transition: opacity 200ms ease;
+    }
+    .dash-overlay.open { display: block; opacity: 1; }
+
+    .dash-panel {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      bottom: 16px;
+      width: min(720px, calc(100vw - 32px));
+      background: var(--panel);
+      border-radius: 18px;
+      box-shadow: 0 24px 60px rgba(22, 49, 74, 0.28);
+      z-index: 51;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      transform: translateY(20px);
+      opacity: 0;
+      transition: transform 220ms ease, opacity 180ms ease;
+    }
+    .dash-panel.open { display: flex; transform: translateY(0); opacity: 1; }
+
+    .dash-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--line);
+      flex-shrink: 0;
+    }
+    .dash-head h2 {
+      margin: 0;
+      font-family: "Nunito", sans-serif;
+      font-size: 1.1rem;
+      font-weight: 800;
+    }
+
+    .dash-body {
+      padding: 20px;
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .dash-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 10px;
+    }
+
+    .stat-card {
+      background: #f5f8fb;
+      border-radius: 12px;
+      padding: 14px;
+      text-align: center;
+    }
+    .stat-card .stat-val {
+      font-family: "Nunito", sans-serif;
+      font-weight: 800;
+      font-size: 1.7rem;
+      color: var(--ink);
+      line-height: 1;
+    }
+    .stat-card .stat-lbl {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .dash-section-title {
+      font-family: "Nunito", sans-serif;
+      font-weight: 800;
+      font-size: 0.82rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin: 0;
+    }
+
+    .dash-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .chart-box {
+      background: #f5f8fb;
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .chart-box h3 {
+      margin: 0 0 10px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .chart-box svg {
+      width: 100%;
+      overflow: visible;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      margin-top: 10px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.72rem;
+      color: var(--ink);
+    }
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    .dash-phase-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .dash-phase-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid #eef2f7;
+      font-size: 0.82rem;
+    }
+    .dash-phase-item:last-child { border-bottom: none; }
+    .dash-phase-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .dash-phase-name { flex: 1; font-weight: 600; }
+    .dash-phase-count {
+      font-family: "Nunito", sans-serif;
+      font-weight: 800;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .dash-empty {
+      color: var(--muted);
+      font-size: 0.86rem;
+      text-align: center;
+      padding: 40px 20px;
+    }
+
     .status {
       position: fixed;
       left: 50%;
@@ -573,6 +741,7 @@
     <button id="autoArrange" class="btn-ghost" title="Auto-organizar">Organizar</button>
     <button id="fitView" class="btn-ghost" title="Enquadrar tudo">Enquadrar</button>
     <button id="toggleDoc" class="btn-ghost" title="Documento">Documento</button>
+    <button id="toggleDash" class="btn-ghost" title="Dashboard">Dashboard</button>
   </div>
 
   <!-- TOP RIGHT -->
@@ -580,6 +749,7 @@
     <button id="saveLocal" class="btn-ghost">Salvar</button>
     <button id="loadLocal" class="btn-ghost">Carregar</button>
     <button id="importJsonBtn" class="btn-ghost">Importar .json</button>
+    <button id="downloadJson" class="btn-ghost">Baixar .json</button>
   </div>
   <input type="file" id="importFile" accept=".json" style="display:none">
 
@@ -620,7 +790,7 @@
       <div class="panel-actions">
         <button id="copyDoc" class="btn-ghost">Copiar</button>
         <button id="downloadMd" class="btn-accent">Baixar .md</button>
-        <button id="downloadJson" class="btn-ghost">Baixar .json</button>
+        
       </div>
     </div>
   </aside>
@@ -635,6 +805,16 @@
       <div class="empty-inspector">Selecione um no no board para editar suas propriedades, ou crie um novo com duplo clique.</div>
     </div>
   </aside>
+
+  <!-- DASHBOARD -->
+  <div id="dashOverlay" class="dash-overlay"></div>
+  <div id="dashPanel" class="dash-panel">
+    <div class="dash-head">
+      <h2>Dashboard do Projeto</h2>
+      <button id="dashClose" class="btn-ghost btn-icon" aria-label="Fechar">x</button>
+    </div>
+    <div id="dashBody" class="dash-body"></div>
+  </div>
 
   <div id="status" class="status"></div>
 
@@ -721,6 +901,232 @@
       connectFrom: null
     };
 
+    /* ========================= DASHBOARD ========================= */
+
+    function toggleDash() {
+      const o = byId("dashOverlay");
+      const p = byId("dashPanel");
+      const isOpen = p.classList.contains("open");
+      if (isOpen) {
+        o.classList.remove("open");
+        p.classList.remove("open");
+      } else {
+        o.classList.add("open");
+        p.classList.add("open");
+        renderDashboard();
+      }
+    }
+
+    function renderDashboard() {
+      const body = byId("dashBody");
+      if (!state.nodes.length) {
+        body.innerHTML = '<div class="dash-empty">Nenhum no no board ainda.</div>';
+        return;
+      }
+
+      const counts = {};
+      Object.keys(NODE_TYPES).forEach((k) => counts[k] = 0);
+      state.nodes.forEach((n) => { if (counts[n.kind] !== undefined) counts[n.kind]++; });
+
+      const totalEdges = state.edges.length;
+      const totalNodes = state.nodes.length;
+      const fases = state.nodes.filter((n) => n.kind === "fase");
+      const encontros = state.nodes.filter((n) => n.kind === "encontro");
+      const desafios = encontros.filter((n) => n.encounterType === "Desafio");
+      const npcs = encontros.filter((n) => n.encounterType === "NPC");
+      const atividades = state.nodes.filter((n) => n.kind === "atividade");
+      const allSkills = new Set();
+      atividades.forEach((n) => (n.skills || []).forEach((s) => allSkills.add(s)));
+      const diffs = desafios.map((n) => Number(n.difficulty || 1));
+      const avgDiff = diffs.length ? (diffs.reduce((a, b) => a + b, 0) / diffs.length).toFixed(1) : "0";
+      const maxDiff = diffs.length ? Math.max(...diffs) : 0;
+      const density = totalNodes > 1 ? (totalEdges / totalNodes).toFixed(2) : "0";
+
+      let html = "";
+
+      /* --- Stat cards --- */
+      html += '<div class="dash-stats">';
+      html += statCard(totalNodes, "Nos totais");
+      html += statCard(totalEdges, "Conexoes");
+      html += statCard(fases.length, "Fases");
+      html += statCard(atividades.length, "Atividades");
+      html += statCard(encontros.length, "Encontros");
+      html += statCard(allSkills.size, "Habilidades BNCC");
+      html += statCard(density, "Densidade");
+      html += statCard(avgDiff + "/" + maxDiff, "Dificuldade media/max");
+      html += '</div>';
+
+      /* --- Charts row 1: donut + bar --- */
+      html += '<p class="dash-section-title">Distribuicao</p>';
+      html += '<div class="dash-row">';
+
+      /* Donut: node types */
+      const donutData = Object.keys(NODE_TYPES)
+        .map((k) => ({ label: NODE_TYPES[k].label, count: counts[k], color: NODE_TYPES[k].color }))
+        .filter((d) => d.count > 0);
+      html += '<div class="chart-box"><h3>Nos por tipo</h3>';
+      html += svgDonut(donutData, 120);
+      html += '<div class="legend">';
+      donutData.forEach((d) => {
+        html += '<span class="legend-item"><span class="legend-dot" style="background:' + d.color + '"></span>' + d.label + ' (' + d.count + ')</span>';
+      });
+      html += '</div></div>';
+
+      /* Bar: encontro types */
+      const barData = [
+        { label: "Desafio", count: desafios.length, color: "#e08a2b" },
+        { label: "NPC", count: npcs.length, color: "#2b6cb0" }
+      ];
+      html += '<div class="chart-box"><h3>Encontros por tipo</h3>';
+      html += svgBarChart(barData, 120);
+      html += '</div>';
+
+      html += '</div>';
+
+      /* --- Charts row 2: difficulty + skills --- */
+      html += '<p class="dash-section-title">Desafios e Habilidades</p>';
+      html += '<div class="dash-row">';
+
+      /* Horizontal bar: difficulty distribution */
+      if (diffs.length) {
+        const diffBuckets = [0, 0, 0, 0, 0];
+        diffs.forEach((d) => { const b = Math.min(Math.floor((d - 1) / 2), 4); diffBuckets[b]++; });
+        const diffLabels = ["1-2", "3-4", "5-6", "7-8", "9-10"];
+        const diffColors = ["#1f9d6b", "#2b6cb0", "#e08a2b", "#d24a4a", "#b820b1"];
+        const diffHData = diffLabels.map((l, i) => ({ label: l, count: diffBuckets[i], color: diffColors[i] }));
+        html += '<div class="chart-box"><h3>Distribuicao de dificuldade</h3>';
+        html += svgHBarChart(diffHData, 110);
+        html += '</div>';
+      } else {
+        html += '<div class="chart-box"><h3>Distribuicao de dificuldade</h3><div class="dash-empty">Nenhum desafio ainda.</div></div>';
+      }
+
+      /* Horizontal bar: top skills */
+      if (allSkills.size) {
+        const skillCounts = {};
+        atividades.forEach((n) => (n.skills || []).forEach((s) => { skillCounts[s] = (skillCounts[s] || 0) + 1; }));
+        const sorted = Object.entries(skillCounts).sort((a, b) => b[1] - a[1]).slice(0, 8);
+        const skillHData = sorted.map(([code, cnt], i) => ({
+          label: code,
+          count: cnt,
+          color: ["#2b6cb0", "#1f9d6b", "#6b4ed8", "#e08a2b", "#0e8f9e", "#b820b1", "#d24a4a", "#5a7588"][i % 8]
+        }));
+        html += '<div class="chart-box"><h3>Habilidades mais usadas</h3>';
+        html += svgHBarChart(skillHData, 110);
+        html += '</div>';
+      } else {
+        html += '<div class="chart-box"><h3>Habilidades mais usadas</h3><div class="dash-empty">Nenhuma habilidade marcada.</div></div>';
+      }
+
+      html += '</div>';
+
+      /* --- Phase overview --- */
+      if (fases.length) {
+        html += '<p class="dash-section-title">Visao por fase</p>';
+        html += '<div class="chart-box"><ul class="dash-phase-list">';
+        fases.forEach((f) => {
+          const fEdges = state.edges.filter((e) => e.from === f.id || e.to === f.id);
+          const connected = new Set();
+          fEdges.forEach((e) => { connected.add(e.from); connected.add(e.to); });
+          connected.delete(f.id);
+          html += '<li class="dash-phase-item">';
+          html += '<span class="dash-phase-dot" style="background:' + (NODE_TYPES.fase.color) + '"></span>';
+          html += '<span class="dash-phase-name">' + escHtml(f.label) + '</span>';
+          html += '<span class="dash-phase-count">' + connected.size + ' conectados</span>';
+          html += '</li>';
+        });
+        html += '</ul></div>';
+      }
+
+      /* --- Connection matrix (sparse) --- */
+      html += '<p class="dash-section-title">Fluxo</p>';
+      html += '<div class="chart-box">';
+      html += '<h3>Maiores receptadores (mais arestas entrando)</h3>';
+      const inDeg = {};
+      state.edges.forEach((e) => { inDeg[e.to] = (inDeg[e.to] || 0) + 1; });
+      const topIn = Object.entries(inDeg).sort((a, b) => b[1] - a[1]).slice(0, 6);
+      if (topIn.length) {
+        const topInData = topIn.map(([id, cnt], i) => {
+          const n = findNode(id);
+          return {
+            label: n ? n.label.substring(0, 24) : id,
+            count: cnt,
+            color: n ? (NODE_TYPES[n.kind] || {}).color || "#888" : "#888"
+          };
+        });
+        html += svgHBarChart(topInData, 100);
+      } else {
+        html += '<div class="dash-empty">Nenhuma conexao.</div>';
+      }
+      html += '</div>';
+
+      body.innerHTML = html;
+    }
+
+    function statCard(val, lbl) {
+      return '<div class="stat-card"><div class="stat-val">' + val + '</div><div class="stat-lbl">' + lbl + '</div></div>';
+    }
+
+    function escHtml(s) {
+      return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    /* ---- SVG chart helpers ---- */
+
+    function svgDonut(data, size) {
+      const total = data.reduce((a, d) => a + d.count, 0);
+      if (!total) return '<svg viewBox="0 0 ' + size + ' ' + size + '"></svg>';
+      const cx = size / 2, cy = size / 2, r = size / 2 - 8, sw = 18;
+      const circ = 2 * Math.PI * r;
+      let acc = 0;
+      let paths = "";
+      data.forEach((d) => {
+        const pct = d.count / total;
+        const dash = pct * circ;
+        const gap = circ - dash;
+        const offset = -acc * circ + circ * 0.25;
+        paths += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + d.color + '" stroke-width="' + sw + '" stroke-dasharray="' + dash + ' ' + gap + '" stroke-dashoffset="' + offset + '" />';
+        acc += pct;
+      });
+      return '<svg viewBox="0 0 ' + size + ' ' + size + '">' + paths + '<text x="' + cx + '" y="' + (cy - 4) + '" text-anchor="middle" font-family="Nunito,sans-serif" font-weight="800" font-size="18" fill="#16314a">' + total + '</text><text x="' + cx + '" y="' + (cy + 12) + '" text-anchor="middle" font-family="Nunito,sans-serif" font-size="9" fill="#5a7588">nos</text></svg>';
+    }
+
+    function svgBarChart(data, h) {
+      const max = Math.max(...data.map((d) => d.count), 1);
+      const bw = 40, gap = 20;
+      const totalW = data.length * (bw + gap);
+      let bars = "";
+      data.forEach((d, i) => {
+        const bh = (d.count / max) * (h - 20);
+        const x = i * (bw + gap);
+        const y = h - bh - 16;
+        bars += '<rect x="' + x + '" y="' + y + '" width="' + bw + '" height="' + bh + '" rx="5" fill="' + d.color + '" />';
+        bars += '<text x="' + (x + bw / 2) + '" y="' + (h - 2) + '" text-anchor="middle" font-family="Nunito,sans-serif" font-size="10" fill="#5a7588">' + d.label + '</text>';
+        bars += '<text x="' + (x + bw / 2) + '" y="' + (y - 4) + '" text-anchor="middle" font-family="Nunito,sans-serif" font-weight="800" font-size="11" fill="#16314a">' + d.count + '</text>';
+      });
+      return '<svg viewBox="0 0 ' + totalW + ' ' + h + '">' + bars + '</svg>';
+    }
+
+    function svgHBarChart(data, h) {
+      const max = Math.max(...data.map((d) => d.count), 1);
+      const rowH = Math.min(24, (h - 10) / data.length);
+      const barH = rowH - 4;
+      const labelW = 80;
+      const barAreaW = 140;
+      const totalW = labelW + barAreaW + 30;
+      let bars = "";
+      data.forEach((d, i) => {
+        const y = i * rowH;
+        const bw = (d.count / max) * barAreaW;
+        bars += '<text x="' + (labelW - 6) + '" y="' + (y + barH - 3) + '" text-anchor="end" font-family="Nunito,sans-serif" font-weight="700" font-size="10" fill="#16314a">' + escHtml(d.label) + '</text>';
+        bars += '<rect x="' + labelW + '" y="' + y + '" width="' + bw + '" height="' + barH + '" rx="4" fill="' + d.color + '" />';
+        bars += '<text x="' + (labelW + bw + 5) + '" y="' + (y + barH - 3) + '" font-family="Nunito,sans-serif" font-weight="800" font-size="10" fill="#16314a">' + d.count + '</text>';
+      });
+      return '<svg viewBox="0 0 ' + totalW + ' ' + (data.length * rowH + 6) + '">' + bars + '</svg>';
+    }
+
+    let _dashTimer = null;
+
     init();
 
     function init() {
@@ -731,6 +1137,9 @@
       byId("autoArrange").addEventListener("click", autoArrange);
       byId("fitView").addEventListener("click", fitView);
       byId("toggleDoc").addEventListener("click", () => { state.ui.leftOpen = !state.ui.leftOpen; syncPanels(); renderDoc(); });
+      byId("toggleDash").addEventListener("click", toggleDash);
+      byId("dashClose").addEventListener("click", toggleDash);
+      byId("dashOverlay").addEventListener("click", toggleDash);
       byId("closeLeft").addEventListener("click", () => { state.ui.leftOpen = false; syncPanels(); });
       byId("closeRight").addEventListener("click", () => { state.ui.rightOpen = false; syncPanels(); });
 
@@ -1249,6 +1658,15 @@
       renderEdges();
       renderInspector();
       renderDoc();
+      scheduleDashRefresh();
+    }
+
+    function scheduleDashRefresh() {
+      if (_dashTimer) return;
+      _dashTimer = setTimeout(() => {
+        _dashTimer = null;
+        if (byId("dashPanel").classList.contains("open")) renderDashboard();
+      }, 300);
     }
 
     function renderNodes() {
